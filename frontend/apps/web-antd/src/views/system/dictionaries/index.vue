@@ -223,7 +223,7 @@ function selectType(type: DictionaryTypeRecord) {
 
 function onTypeMenuClick(
   type: DictionaryTypeRecord,
-  info: { key: string },
+  info: { key: number | string | symbol },
 ) {
   switch (info.key) {
     case 'delete': {

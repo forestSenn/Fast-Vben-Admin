@@ -27,7 +27,7 @@ FROM base AS build
 ARG VITE_GLOB_API_URL=/api/v1
 ENV VITE_GLOB_API_URL=$VITE_GLOB_API_URL
 
-RUN pnpm run build:antd
+RUN pnpm -F @vben/web-antd run build
 
 FROM nginx:1.27-alpine AS production
 

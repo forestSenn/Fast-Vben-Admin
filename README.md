@@ -1,71 +1,87 @@
 # Fast Vben Admin
 
-Fast Vben Admin is a full-stack admin template that combines a FastAPI backend with the Vue Vben Admin `web-antd` frontend.
+**中文** | [English](./README.en-US.md)
 
-## Status
+Fast Vben Admin 是一个全栈后台管理模板，后端基于 FastAPI，前端基于 Vue Vben Admin 的 `web-antd` 应用，适合作为中后台系统、RBAC 权限系统和业务管理平台的二次开发基础。
 
-The project is a ready-to-extend FastAPI + Vue Vben Admin base with real backend APIs and the `web-antd` frontend.
+## 项目状态
 
-Implemented modules:
+当前项目已经具备可扩展的 FastAPI + Vue Vben Admin 基础能力，并接入了真实后端 API 与 `web-antd` 前端。
 
-- Authentication, current user, password recovery, profile and password update.
-- User, role, menu, department, dictionary and system setting management.
-- RBAC permission codes, backend permission checks and backend-driven menu loading.
-- Login logs and operation logs.
-- File upload, download, delete, avatar upload and file management page.
-- Notice publishing and personal messages.
-- User export, Items export, Items CSV template and CSV import.
-- OpenAPI TypeScript generation.
-- Backend, frontend and Docker Compose CI workflows.
+已实现模块：
 
-Verified locally:
+- 登录认证、当前用户、密码找回、个人资料和密码修改。
+- 用户、角色、菜单、部门、字典和系统设置管理。
+- RBAC 权限码、后端权限校验和后端动态菜单。
+- 登录日志和操作日志。
+- 文件上传、下载、删除、头像上传和文件管理页面。
+- 通知发布和个人消息。
+- 用户导出、事项导出、事项 CSV 模板和 CSV 导入。
+- OpenAPI TypeScript 客户端生成。
+- 后端、前端和 Docker Compose CI 工作流。
 
-- Backend lint: `uv run ruff check app tests`
-- Backend tests with local PostgreSQL: `POSTGRES_SERVER=localhost SMTP_HOST='' uv run pytest`
-- Frontend typecheck: `pnpm -F @vben/web-antd run typecheck`
-- Frontend build: `pnpm -F @vben/web-antd run build`
-- OpenAPI generation: `pnpm generate:api`
+本地已验证：
 
-Docker Compose workflow is configured in `.github/workflows/docker-compose.yml`. Local Docker verification requires Docker to be installed.
+- 后端 lint：`uv run ruff check app tests`
+- 后端测试：`POSTGRES_SERVER=localhost SMTP_HOST='' uv run pytest`
+- 前端类型检查：`pnpm -F @vben/web-antd run typecheck`
+- 前端构建：`pnpm -F @vben/web-antd run build`
+- OpenAPI 生成：`pnpm generate:api`
 
-## Tech Stack
+Docker Compose 工作流已配置在 `.github/workflows/docker-compose.yml`。本地 Docker 验证需要提前安装 Docker。
 
-- Backend: FastAPI, SQLModel, Alembic, PostgreSQL, JWT, Pytest, uv
-- Frontend: Vue 3, Vite, TypeScript, Pinia, Vue Router, Vue Vben Admin, Ant Design Vue, pnpm
-- Infrastructure: Docker Compose, Nginx, Mailcatcher/Mailpit, Adminer
+## 技术栈
 
-## Quick Start
+- 后端：FastAPI、SQLModel、Alembic、PostgreSQL、JWT、Pytest、uv
+- 前端：Vue 3、Vite、TypeScript、Pinia、Vue Router、Vue Vben Admin、Ant Design Vue、pnpm
+- 基础设施：Docker Compose、Nginx、Mailcatcher/Mailpit、Adminer
+
+## Preview
+
+### 仪表盘
+
+![仪表盘预览](./docs/assets/preview-dashboard.png)
+
+### 用户管理
+
+![用户管理预览](./docs/assets/preview-users.png)
+
+### 字典管理
+
+![字典管理预览](./docs/assets/preview-dictionaries.png)
+
+## 快速开始
 
 ```bash
 cp .env.example .env
 docker compose up --build
 ```
 
-On Windows, the setup helper can create `.env` and install backend/frontend dependencies:
+Windows 环境可以使用初始化脚本创建 `.env` 并安装前后端依赖：
 
 ```powershell
 pnpm setup
 ```
 
-Default local URLs:
+默认本地地址：
 
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:8000
-- API docs: http://localhost:8000/docs
-- OpenAPI schema: http://localhost:8000/api/v1/openapi.json
-- Mail preview: http://localhost:1080
-- Database admin: http://localhost:8080
+- 前端：http://localhost:5173
+- 后端 API：http://localhost:8000
+- API 文档：http://localhost:8000/docs
+- OpenAPI Schema：http://localhost:8000/api/v1/openapi.json
+- 邮件预览：http://localhost:1080
+- 数据库管理：http://localhost:8080
 
-Default local administrator:
+默认本地管理员：
 
-- Email: `admin@example.com`
-- Password: `changethis`
+- 邮箱：`admin@example.com`
+- 密码：`changethis`
 
-Change all default secrets before any non-local deployment.
+任何非本地环境部署前，请务必修改所有默认密钥和密码。
 
-## Development
+## 本地开发
 
-Backend:
+后端：
 
 ```bash
 cd backend
@@ -74,13 +90,13 @@ uv run alembic upgrade head
 fastapi dev app/main.py
 ```
 
-When running backend commands directly against a local PostgreSQL server, override the Docker-only host name:
+如果直接连接本机 PostgreSQL，而不是 Docker Compose 内的数据库，需要覆盖 Docker 专用主机名：
 
 ```powershell
 $env:POSTGRES_SERVER='localhost'
 ```
 
-Frontend:
+前端：
 
 ```bash
 cd frontend
@@ -88,7 +104,7 @@ pnpm install
 pnpm dev
 ```
 
-Useful root commands:
+常用根目录命令：
 
 ```bash
 pnpm backend:lint
@@ -99,9 +115,9 @@ pnpm frontend:e2e
 pnpm generate:api
 ```
 
-`pnpm generate:api` reads `http://localhost:8000/api/v1/openapi.json` by default and writes generated TypeScript files to `frontend/apps/web-antd/src/api/generated`. Override the schema URL with `OPENAPI_INPUT` when needed.
+`pnpm generate:api` 默认读取 `http://localhost:8000/api/v1/openapi.json`，并将生成的 TypeScript 文件写入 `frontend/apps/web-antd/src/api/generated`。如需指定其他 OpenAPI 地址，可通过 `OPENAPI_INPUT` 覆盖。
 
-More docs:
+## 更多文档
 
 - `docs/development.md`
 - `docs/deployment.md`
@@ -110,9 +126,9 @@ More docs:
 - `docs/module-guide.md`
 - `docs/faq.md`
 
-## Reference Projects
+## 参考项目
 
-This project integrates ideas and code from:
+本项目整合并参考了以下项目的思路和代码：
 
 - Full Stack FastAPI Template
 - Vue Vben Admin

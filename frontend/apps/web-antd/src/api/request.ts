@@ -45,6 +45,16 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
     }
   }
 
+  function isCurrentUserMissing(error: any) {
+    const { config, response } = error ?? {};
+    const data = response?.data ?? {};
+    return (
+      response?.status === 404 &&
+      config?.url?.includes('/users/me') &&
+      (data?.code === 'USER_NOT_FOUND' || data?.message === 'User not found')
+    );
+  }
+
   /**
    * 刷新token逻辑
    */
@@ -90,9 +100,22 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
     }),
   );
 
+  client.addResponseInterceptor({
+    rejected: async (error) => {
+      if (isCurrentUserMissing(error)) {
+        error.__skipErrorMessage = true;
+        await doReAuthenticate();
+      }
+      throw error;
+    },
+  });
+
   // 通用的错误处理,如果没有进入上面的错误处理逻辑，就会进入这里
   client.addResponseInterceptor(
     errorMessageResponseInterceptor((msg: string, error) => {
+      if (error?.__skipErrorMessage) {
+        return;
+      }
       // 这里可以根据业务进行定制,你可以拿到 error 内的信息进行定制化处理，根据不同的 code 做不同的提示，而不是直接使用 message.error 提示 msg
       const responseData = error?.response?.data ?? {};
       const errorMessage = responseData?.error ?? responseData?.message ?? '';
