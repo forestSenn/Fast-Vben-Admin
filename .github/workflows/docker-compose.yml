@@ -1,0 +1,37 @@
+name: Docker Compose
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare environment
+        run: cp .env.example .env
+
+      - name: Validate compose file
+        run: docker compose -f compose.yml config
+
+      - name: Build and start
+        run: docker compose -f compose.yml up -d --build
+
+      - name: Wait for backend health
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8000/api/v1/utils/health-check; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose -f compose.yml logs
+          exit 1
+
+      - name: Stop services
+        if: always()
+        run: docker compose -f compose.yml down -v

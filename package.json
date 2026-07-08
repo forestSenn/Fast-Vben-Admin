@@ -1,0 +1,21 @@
+{
+  "name": "fast-vben-admin",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "setup": "powershell -ExecutionPolicy Bypass -File scripts/init.ps1",
+    "backend:dev": "cd backend && fastapi dev app/main.py",
+    "backend:lint": "cd backend && uv run ruff check app tests",
+    "backend:test": "cd backend && uv run pytest",
+    "frontend:dev": "pnpm --dir frontend dev",
+    "frontend:build": "pnpm --dir frontend build",
+    "frontend:typecheck": "pnpm --dir frontend -F @vben/web-antd run typecheck",
+    "frontend:e2e": "pnpm --dir frontend -F @vben/web-antd run test:e2e",
+    "generate:api": "pnpm --dir frontend generate:api",
+    "dev": "docker compose up --build",
+    "build": "pnpm frontend:build",
+    "test": "pnpm backend:test",
+    "compose:up": "docker compose up --build",
+    "compose:down": "docker compose down"
+  }
+}

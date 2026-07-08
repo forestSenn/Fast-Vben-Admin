@@ -1,0 +1,68 @@
+name: Backend
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: app
+          POSTGRES_PASSWORD: test-postgres-password
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d app"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      ACCESS_TOKEN_EXPIRE_MINUTES: 11520
+      BACKEND_CORS_ORIGINS: '["http://localhost:5173","http://localhost"]'
+      DOMAIN: localhost
+      EMAILS_FROM_EMAIL: info@example.com
+      ENVIRONMENT: local
+      FIRST_SUPERUSER: admin@example.com
+      FIRST_SUPERUSER_PASSWORD: test-superuser-password
+      FRONTEND_HOST: http://localhost:5173
+      POSTGRES_DB: app
+      POSTGRES_PASSWORD: test-postgres-password
+      POSTGRES_PORT: 5432
+      POSTGRES_SERVER: localhost
+      POSTGRES_USER: postgres
+      PROJECT_NAME: Fast Vben Admin
+      SECRET_KEY: test-secret-key-for-ci
+      SMTP_HOST: ''
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --locked
+
+      - name: Lint
+        working-directory: backend
+        run: uv run ruff check app tests
+
+      - name: Run migrations
+        working-directory: backend
+        run: uv run alembic upgrade head
+
+      - name: Test
+        working-directory: backend
+        run: uv run pytest

@@ -1,0 +1,118 @@
+# Fast Vben Admin
+
+Fast Vben Admin is a full-stack admin template that combines a FastAPI backend with the Vue Vben Admin `web-antd` frontend.
+
+## Status
+
+The project is a ready-to-extend FastAPI + Vue Vben Admin base with real backend APIs and the `web-antd` frontend.
+
+Implemented modules:
+
+- Authentication, current user, password recovery, profile and password update.
+- User, role, menu, department, dictionary and system setting management.
+- RBAC permission codes, backend permission checks and backend-driven menu loading.
+- Login logs and operation logs.
+- File upload, download, delete, avatar upload and file management page.
+- Notice publishing and personal messages.
+- User export, Items export, Items CSV template and CSV import.
+- OpenAPI TypeScript generation.
+- Backend, frontend and Docker Compose CI workflows.
+
+Verified locally:
+
+- Backend lint: `uv run ruff check app tests`
+- Backend tests with local PostgreSQL: `POSTGRES_SERVER=localhost SMTP_HOST='' uv run pytest`
+- Frontend typecheck: `pnpm -F @vben/web-antd run typecheck`
+- Frontend build: `pnpm -F @vben/web-antd run build`
+- OpenAPI generation: `pnpm generate:api`
+
+Docker Compose workflow is configured in `.github/workflows/docker-compose.yml`. Local Docker verification requires Docker to be installed.
+
+## Tech Stack
+
+- Backend: FastAPI, SQLModel, Alembic, PostgreSQL, JWT, Pytest, uv
+- Frontend: Vue 3, Vite, TypeScript, Pinia, Vue Router, Vue Vben Admin, Ant Design Vue, pnpm
+- Infrastructure: Docker Compose, Nginx, Mailcatcher/Mailpit, Adminer
+
+## Quick Start
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+On Windows, the setup helper can create `.env` and install backend/frontend dependencies:
+
+```powershell
+pnpm setup
+```
+
+Default local URLs:
+
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8000
+- API docs: http://localhost:8000/docs
+- OpenAPI schema: http://localhost:8000/api/v1/openapi.json
+- Mail preview: http://localhost:1080
+- Database admin: http://localhost:8080
+
+Default local administrator:
+
+- Email: `admin@example.com`
+- Password: `changethis`
+
+Change all default secrets before any non-local deployment.
+
+## Development
+
+Backend:
+
+```bash
+cd backend
+uv sync
+uv run alembic upgrade head
+fastapi dev app/main.py
+```
+
+When running backend commands directly against a local PostgreSQL server, override the Docker-only host name:
+
+```powershell
+$env:POSTGRES_SERVER='localhost'
+```
+
+Frontend:
+
+```bash
+cd frontend
+pnpm install
+pnpm dev
+```
+
+Useful root commands:
+
+```bash
+pnpm backend:lint
+pnpm backend:test
+pnpm frontend:typecheck
+pnpm frontend:build
+pnpm frontend:e2e
+pnpm generate:api
+```
+
+`pnpm generate:api` reads `http://localhost:8000/api/v1/openapi.json` by default and writes generated TypeScript files to `frontend/apps/web-antd/src/api/generated`. Override the schema URL with `OPENAPI_INPUT` when needed.
+
+More docs:
+
+- `docs/development.md`
+- `docs/deployment.md`
+- `docs/api-contract.md`
+- `docs/rbac.md`
+- `docs/module-guide.md`
+- `docs/faq.md`
+
+## Reference Projects
+
+This project integrates ideas and code from:
+
+- Full Stack FastAPI Template
+- Vue Vben Admin

@@ -1,0 +1,20 @@
+services:
+  backend:
+    command: fastapi dev app/main.py --host 0.0.0.0
+    volumes:
+      - ./backend/app:/app/backend/app
+      - ./backend/scripts:/app/backend/scripts
+      - ./backend/alembic.ini:/app/backend/alembic.ini
+
+  frontend:
+    build:
+      target: development
+    command: pnpm -F @vben/web-antd run dev --host 0.0.0.0
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+    ports:
+      - "5173:5173"
+
+volumes:
+  frontend-node-modules:

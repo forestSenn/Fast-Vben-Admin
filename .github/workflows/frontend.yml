@@ -1,0 +1,36 @@
+name: Frontend
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+          node-version: '22.18.0'
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        working-directory: frontend
+        run: pnpm -F @vben/web-antd run typecheck
+
+      - name: Build
+        working-directory: frontend
+        run: pnpm -F @vben/web-antd run build
