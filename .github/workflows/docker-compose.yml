@@ -32,6 +32,12 @@ jobs:
           docker compose -f compose.yml logs
           exit 1
 
+      - name: Show compose logs on failure
+        if: failure()
+        run: |
+          docker compose -f compose.yml ps -a
+          docker compose -f compose.yml logs --no-color
+
       - name: Stop services
         if: always()
         run: docker compose -f compose.yml down -v
