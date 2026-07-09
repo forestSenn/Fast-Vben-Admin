@@ -18,8 +18,17 @@ jobs:
       - name: Validate compose file
         run: docker compose -f compose.yml config
 
-      - name: Build and start
-        run: docker compose -f compose.yml up -d --build
+      - name: Build images
+        run: docker compose -f compose.yml build
+
+      - name: Start infrastructure
+        run: docker compose -f compose.yml up -d --no-build db mailcatcher adminer
+
+      - name: Run prestart
+        run: docker compose -f compose.yml up --no-build prestart
+
+      - name: Start application
+        run: docker compose -f compose.yml up -d --no-build backend frontend
 
       - name: Wait for backend health
         run: |
