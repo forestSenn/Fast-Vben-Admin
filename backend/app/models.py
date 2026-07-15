@@ -1,8 +1,19 @@
 import uuid
 from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any, Literal
 
 from pydantic import EmailStr
-from sqlalchemy import DateTime, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    CheckConstraint,
+    DateTime,
+    ForeignKeyConstraint,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -10,14 +21,566 @@ def get_datetime_utc() -> datetime:
     return datetime.now(UTC)
 
 
-# Shared properties
-class UserBase(SQLModel):
+DEFAULT_TENANT_ID = uuid.UUID("00000000-0000-4000-8000-000000000001")
+DEFAULT_TENANT_PLAN_ID = uuid.UUID("00000000-0000-4000-8000-000000001001")
+DEFAULT_TENANT_TEMPLATE_ID = uuid.UUID("00000000-0000-4000-8000-000000002001")
+
+
+class DataScope(StrEnum):
+    ALL = "all"
+    DEPARTMENT = "department"
+    DEPARTMENT_AND_CHILDREN = "department_and_children"
+    SELF = "self"
+    CUSTOM = "custom"
+
+
+class TenantPlanBase(SQLModel):
+    code: str = Field(min_length=1, max_length=100, unique=True, index=True)
+    name: str = Field(min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
+    max_members: int | None = Field(default=None, ge=1)
+    max_file_assets: int | None = Field(default=None, ge=1)
+    max_storage_bytes: int | None = Field(default=None, ge=1, sa_type=BigInteger)  # type: ignore
+    is_default: bool = False
+    is_active: bool = True
+
+
+class TenantPlan(TenantPlanBase, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    updated_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class TenantPlanCreate(TenantPlanBase):
+    pass
+
+
+class TenantPlanUpdate(SQLModel):
+    code: str | None = Field(default=None, min_length=1, max_length=100)
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
+    max_members: int | None = Field(default=None, ge=1)
+    max_file_assets: int | None = Field(default=None, ge=1)
+    max_storage_bytes: int | None = Field(default=None, ge=1)
+    is_default: bool | None = None
+    is_active: bool | None = None
+
+
+class TenantPlanPublic(TenantPlanBase):
+    id: uuid.UUID
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class TenantPlansPublic(SQLModel):
+    items: list[TenantPlanPublic]
+    total: int
+    page: int
+    page_size: int
+
+
+class TenantInitializationTemplateBase(SQLModel):
+    code: str = Field(min_length=1, max_length=100, unique=True, index=True)
+    name: str = Field(min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
+    root_department_code: str = Field(
+        default="headquarters", min_length=1, max_length=100
+    )
+    root_department_name: str = Field(default="总部", min_length=1, max_length=100)
+    seed_posts: bool = True
+    seed_dictionaries: bool = True
+    seed_settings: bool = True
+    seed_storage_channels: bool = True
+    seed_message_templates: bool = True
+    seed_sms_channels: bool = True
+    seed_mail_accounts: bool = True
+    is_default: bool = False
+    is_active: bool = True
+
+
+class TenantInitializationTemplate(TenantInitializationTemplateBase, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    updated_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class TenantInitializationTemplateCreate(TenantInitializationTemplateBase):
+    pass
+
+
+class TenantInitializationTemplateUpdate(SQLModel):
+    code: str | None = Field(default=None, min_length=1, max_length=100)
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
+    root_department_code: str | None = Field(default=None, min_length=1, max_length=100)
+    root_department_name: str | None = Field(default=None, min_length=1, max_length=100)
+    seed_posts: bool | None = None
+    seed_dictionaries: bool | None = None
+    seed_settings: bool | None = None
+    seed_storage_channels: bool | None = None
+    seed_message_templates: bool | None = None
+    seed_sms_channels: bool | None = None
+    seed_mail_accounts: bool | None = None
+    is_default: bool | None = None
+    is_active: bool | None = None
+
+
+class TenantInitializationTemplatePublic(TenantInitializationTemplateBase):
+    id: uuid.UUID
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class TenantInitializationTemplatesPublic(SQLModel):
+    items: list[TenantInitializationTemplatePublic]
+    total: int
+    page: int
+    page_size: int
+
+
+class TenantBase(SQLModel):
+    code: str = Field(min_length=1, max_length=100, unique=True, index=True)
+    name: str = Field(min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
+    is_active: bool = True
+
+
+class Tenant(TenantBase, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    plan_id: uuid.UUID = Field(
+        default=DEFAULT_TENANT_PLAN_ID,
+        foreign_key="tenantplan.id",
+        index=True,
+        ondelete="RESTRICT",
+    )
+    initialization_template_id: uuid.UUID = Field(
+        default=DEFAULT_TENANT_TEMPLATE_ID,
+        foreign_key="tenantinitializationtemplate.id",
+        index=True,
+        ondelete="RESTRICT",
+    )
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    updated_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class TenantPublic(TenantBase):
+    id: uuid.UUID
+    plan_id: uuid.UUID
+    plan_name: str | None = None
+    initialization_template_id: uuid.UUID
+    initialization_template_name: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class TenantCreate(TenantBase):
+    plan_id: uuid.UUID | None = None
+    initialization_template_id: uuid.UUID | None = None
+
+
+class TenantUpdate(SQLModel):
+    code: str | None = Field(default=None, min_length=1, max_length=100)
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
+    is_active: bool | None = None
+    plan_id: uuid.UUID | None = None
+
+
+class TenantsPublic(SQLModel):
+    items: list[TenantPublic]
+    total: int
+    page: int
+    page_size: int
+
+
+class TenantMembershipPublic(SQLModel):
+    tenant: TenantPublic
+    is_active: bool
+    is_default: bool
+    is_current: bool
+    created_at: datetime | None = None
+
+
+class TenantSwitchRequest(SQLModel):
+    tenant_id: uuid.UUID
+
+
+class TenantUsagePublic(SQLModel):
+    tenant_id: uuid.UUID
+    plan: TenantPlanPublic
+    members: int
+    file_assets: int
+    storage_bytes: int
+
+
+class WorkflowVersionStatus(StrEnum):
+    DRAFT = "draft"
+    PUBLISHED = "published"
+    RETIRED = "retired"
+
+
+class WorkflowInstanceStatus(StrEnum):
+    RUNNING = "running"
+    COMPLETED = "completed"
+    REJECTED = "rejected"
+    WITHDRAWN = "withdrawn"
+
+
+class WorkflowTaskStatus(StrEnum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    TRANSFERRED = "transferred"
+    CANCELLED = "cancelled"
+
+
+class WorkflowDefinition(SQLModel, table=True):
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "code", name="uq_workflowdefinition_tenant_code"),
+        UniqueConstraint("id", "tenant_id", name="uq_workflowdefinition_id_tenant_id"),
+    )
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(
+        foreign_key="tenant.id", index=True, nullable=False, ondelete="CASCADE"
+    )
+    code: str = Field(min_length=1, max_length=100, index=True)
+    name: str = Field(min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
+    created_by: uuid.UUID = Field(foreign_key="user.id", ondelete="RESTRICT")
+    created_at: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    updated_at: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class WorkflowDefinitionVersion(SQLModel, table=True):
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["definition_id", "tenant_id"],
+            ["workflowdefinition.id", "workflowdefinition.tenant_id"],
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint(
+            "definition_id", "version", name="uq_workflowdefinitionversion_number"
+        ),
+        UniqueConstraint(
+            "id", "tenant_id", name="uq_workflowdefinitionversion_id_tenant_id"
+        ),
+    )
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(index=True, nullable=False)
+    definition_id: uuid.UUID = Field(index=True, nullable=False)
+    version: int = Field(ge=1)
+    process_id: str = Field(min_length=1, max_length=100)
+    bpmn_xml: str = Field(sa_type=Text)  # type: ignore
+    task_assignments: dict[str, str] = Field(default_factory=dict, sa_type=JSON)  # type: ignore
+    timeout_hours: int | None = Field(default=None, ge=1)
+    status: WorkflowVersionStatus = Field(
+        default=WorkflowVersionStatus.DRAFT, sa_type=String(32)
+    )
+    created_by: uuid.UUID = Field(foreign_key="user.id", ondelete="RESTRICT")
+    created_at: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    published_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class WorkflowInstance(SQLModel, table=True):
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["definition_version_id", "tenant_id"],
+            ["workflowdefinitionversion.id", "workflowdefinitionversion.tenant_id"],
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint("id", "tenant_id", name="uq_workflowinstance_id_tenant_id"),
+    )
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(index=True, nullable=False)
+    definition_version_id: uuid.UUID = Field(index=True, nullable=False)
+    title: str = Field(min_length=1, max_length=200)
+    business_type: str | None = Field(default=None, max_length=100)
+    business_id: str | None = Field(default=None, max_length=100)
+    form_data: dict[str, Any] = Field(default_factory=dict, sa_type=JSON)  # type: ignore
+    engine_state: str = Field(sa_type=Text)  # type: ignore
+    status: WorkflowInstanceStatus = Field(
+        default=WorkflowInstanceStatus.RUNNING, sa_type=String(32)
+    )
+    started_by: uuid.UUID = Field(foreign_key="user.id", ondelete="RESTRICT")
+    created_at: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    updated_at: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    completed_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class WorkflowTask(SQLModel, table=True):
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["instance_id", "tenant_id"],
+            ["workflowinstance.id", "workflowinstance.tenant_id"],
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint(
+            "tenant_id", "engine_task_id", name="uq_workflowtask_tenant_engine_task"
+        ),
+        UniqueConstraint("id", "tenant_id", name="uq_workflowtask_id_tenant_id"),
+    )
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(index=True, nullable=False)
+    instance_id: uuid.UUID = Field(index=True, nullable=False)
+    engine_task_id: str = Field(max_length=100)
+    task_key: str = Field(max_length=100)
+    name: str = Field(max_length=200)
+    assignment_expression: str = Field(default="starter", max_length=200)
+    status: WorkflowTaskStatus = Field(
+        default=WorkflowTaskStatus.PENDING, sa_type=String(32)
+    )
+    due_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    created_at: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    completed_at: datetime | None = Field(
+        default=None,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    completed_by: uuid.UUID | None = Field(
+        default=None, foreign_key="user.id", ondelete="RESTRICT"
+    )
+
+
+class WorkflowCc(SQLModel, table=True):
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["task_id", "tenant_id"],
+            ["workflowtask.id", "workflowtask.tenant_id"],
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["recipient_user_id", "tenant_id"],
+            ["tenantmembership.user_id", "tenantmembership.tenant_id"],
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint(
+            "task_id", "recipient_user_id", name="uq_workflowcc_task_recipient"
+        ),
+    )
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(index=True, nullable=False)
+    task_id: uuid.UUID = Field(index=True, nullable=False)
+    recipient_user_id: uuid.UUID = Field(index=True, nullable=False)
+    created_by: uuid.UUID = Field(foreign_key="user.id", ondelete="RESTRICT")
+    created_at: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class WorkflowAudit(SQLModel, table=True):
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["instance_id", "tenant_id"],
+            ["workflowinstance.id", "workflowinstance.tenant_id"],
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["task_id", "tenant_id"],
+            ["workflowtask.id", "workflowtask.tenant_id"],
+            ondelete="CASCADE",
+        ),
+    )
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(index=True, nullable=False)
+    instance_id: uuid.UUID = Field(index=True, nullable=False)
+    task_id: uuid.UUID | None = Field(default=None)
+    action: str = Field(max_length=50)
+    actor_user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="RESTRICT")
+    comment: str | None = Field(default=None, max_length=1000)
+    detail: dict[str, Any] = Field(default_factory=dict, sa_type=JSON)  # type: ignore
+    created_at: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class WorkflowNotification(SQLModel, table=True):
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["instance_id", "tenant_id"],
+            ["workflowinstance.id", "workflowinstance.tenant_id"],
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["task_id", "tenant_id"],
+            ["workflowtask.id", "workflowtask.tenant_id"],
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["recipient_user_id", "tenant_id"],
+            ["tenantmembership.user_id", "tenantmembership.tenant_id"],
+            ondelete="CASCADE",
+        ),
+    )
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(index=True, nullable=False)
+    instance_id: uuid.UUID = Field(index=True)
+    task_id: uuid.UUID | None = Field(default=None)
+    recipient_user_id: uuid.UUID = Field(index=True, nullable=False)
+    kind: str = Field(max_length=50)
+    message: str = Field(max_length=500)
+    is_read: bool = False
+    created_at: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class WorkflowDefinitionCreate(SQLModel):
+    code: str = Field(min_length=1, max_length=100)
+    name: str = Field(min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=500)
+    process_id: str = Field(min_length=1, max_length=100)
+    bpmn_xml: str = Field(min_length=1)
+    task_assignments: dict[str, str] = Field(default_factory=dict)
+    timeout_hours: int | None = Field(default=None, ge=1)
+
+
+class WorkflowVersionCreate(SQLModel):
+    process_id: str = Field(min_length=1, max_length=100)
+    bpmn_xml: str = Field(min_length=1)
+    task_assignments: dict[str, str] = Field(default_factory=dict)
+    timeout_hours: int | None = Field(default=None, ge=1)
+
+
+class WorkflowVersionPublic(SQLModel):
+    id: uuid.UUID
+    definition_id: uuid.UUID
+    version: int
+    process_id: str
+    task_assignments: dict[str, str]
+    timeout_hours: int | None
+    status: WorkflowVersionStatus
+    created_at: datetime
+    published_at: datetime | None
+
+
+class WorkflowDefinitionPublic(SQLModel):
+    id: uuid.UUID
+    code: str
+    name: str
+    description: str | None
+    created_at: datetime
+    versions: list[WorkflowVersionPublic] = Field(default_factory=list)
+
+
+class WorkflowStartRequest(SQLModel):
+    definition_code: str = Field(min_length=1, max_length=100)
+    title: str = Field(min_length=1, max_length=200)
+    business_type: str | None = Field(default=None, max_length=100)
+    business_id: str | None = Field(default=None, max_length=100)
+    form_data: dict[str, Any] = Field(default_factory=dict)
+
+
+class WorkflowTaskActionRequest(SQLModel):
+    action: Literal["approve", "reject", "transfer", "cc"]
+    comment: str | None = Field(default=None, max_length=1000)
+    target_user_id: uuid.UUID | None = None
+
+
+class WorkflowTaskPublic(SQLModel):
+    id: uuid.UUID
+    instance_id: uuid.UUID
+    task_key: str
+    name: str
+    assignment_expression: str
+    status: WorkflowTaskStatus
+    due_at: datetime | None
+    is_overdue: bool = False
+    created_at: datetime
+    completed_at: datetime | None
+
+
+class WorkflowAuditPublic(SQLModel):
+    id: uuid.UUID
+    task_id: uuid.UUID | None
+    action: str
+    actor_user_id: uuid.UUID
+    comment: str | None
+    detail: dict[str, Any]
+    created_at: datetime
+
+
+class WorkflowInstancePublic(SQLModel):
+    id: uuid.UUID
+    definition_version_id: uuid.UUID
+    title: str
+    business_type: str | None
+    business_id: str | None
+    form_data: dict[str, Any]
+    status: WorkflowInstanceStatus
+    started_by: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+    completed_at: datetime | None
+    tasks: list[WorkflowTaskPublic] = Field(default_factory=list)
+    audits: list[WorkflowAuditPublic] = Field(default_factory=list)
+
+
+# Global user identity properties
+class UserIdentityBase(SQLModel):
     email: EmailStr = Field(unique=True, index=True, max_length=255)
+    mobile: str | None = Field(default=None, unique=True, index=True, max_length=32)
     is_active: bool = True
     is_superuser: bool = False
     full_name: str | None = Field(default=None, max_length=255)
-    department_id: uuid.UUID | None = Field(default=None, foreign_key="department.id")
     avatar_url: str | None = Field(default=None, max_length=500)
+
+
+class UserBase(UserIdentityBase):
+    department_id: uuid.UUID | None = None
 
 
 # Properties to receive via API on creation
@@ -27,13 +590,47 @@ class UserCreate(UserBase):
 
 class UserRegister(SQLModel):
     email: EmailStr = Field(max_length=255)
+    mobile: str | None = Field(default=None, max_length=32)
     password: str = Field(min_length=8, max_length=128)
     full_name: str | None = Field(default=None, max_length=255)
+
+
+class SmsCodeRequest(SQLModel):
+    tenant_code: str = Field(min_length=1, max_length=100)
+    mobile: str = Field(min_length=11, max_length=32)
+    scene: Literal["login", "register"] = "login"
+
+
+class SmsCodeSent(SQLModel):
+    message: str
+    retry_after_seconds: int
+    debug_code: str | None = None
+
+
+class SmsLoginRequest(SQLModel):
+    tenant_code: str = Field(min_length=1, max_length=100)
+    mobile: str = Field(min_length=11, max_length=32)
+    code: str = Field(min_length=6, max_length=6)
+
+
+class RegistrationStatus(SQLModel):
+    enabled: bool
+
+
+class TenantRegistrationRequest(SQLModel):
+    tenant_code: str = Field(min_length=3, max_length=32)
+    tenant_name: str = Field(min_length=2, max_length=100)
+    email: EmailStr = Field(max_length=255)
+    mobile: str = Field(min_length=11, max_length=32)
+    full_name: str = Field(min_length=1, max_length=255)
+    password: str = Field(min_length=8, max_length=128)
+    sms_code: str = Field(min_length=6, max_length=6)
 
 
 # Properties to receive via API on update, all are optional
 class UserUpdate(SQLModel):
     email: EmailStr | None = Field(default=None, max_length=255)
+    mobile: str | None = Field(default=None, max_length=32)
     is_active: bool | None = None
     is_superuser: bool | None = None
     full_name: str | None = Field(default=None, max_length=255)
@@ -66,7 +663,7 @@ class UserMfaDisable(SQLModel):
 
 
 # Database model, database table inferred from class name
-class User(UserBase, table=True):
+class User(UserIdentityBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     hashed_password: str
     mfa_enabled: bool = Field(default=False, nullable=False)
@@ -85,6 +682,30 @@ class User(UserBase, table=True):
         sa_type=DateTime(timezone=True),  # type: ignore
     )
     items: list[Item] = Relationship(back_populates="owner", cascade_delete=True)
+
+
+class TenantMembership(SQLModel, table=True):
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["department_id", "tenant_id"],
+            ["department.id", "department.tenant_id"],
+            ondelete="RESTRICT",
+        ),
+    )
+
+    user_id: uuid.UUID = Field(
+        foreign_key="user.id", primary_key=True, ondelete="CASCADE"
+    )
+    tenant_id: uuid.UUID = Field(
+        foreign_key="tenant.id", primary_key=True, index=True, ondelete="CASCADE"
+    )
+    department_id: uuid.UUID | None = Field(default=None, index=True)
+    is_active: bool = True
+    is_default: bool = False
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
 
 
 # Properties to return via API, id is always required
@@ -118,9 +739,9 @@ class UserMfaSetup(SQLModel):
 
 class DepartmentBase(SQLModel):
     name: str = Field(min_length=1, max_length=100)
-    code: str = Field(min_length=1, max_length=100, unique=True, index=True)
-    parent_id: uuid.UUID | None = Field(default=None, foreign_key="department.id")
-    leader_user_id: uuid.UUID | None = Field(default=None, foreign_key="user.id")
+    code: str = Field(min_length=1, max_length=100, index=True)
+    parent_id: uuid.UUID | None = None
+    leader_user_id: uuid.UUID | None = None
     sort: int = 0
     is_active: bool = True
     remark: str | None = Field(default=None, max_length=255)
@@ -141,7 +762,28 @@ class DepartmentUpdate(SQLModel):
 
 
 class Department(DepartmentBase, table=True):
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["parent_id", "tenant_id"],
+            ["department.id", "department.tenant_id"],
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["leader_user_id", "tenant_id"],
+            ["tenantmembership.user_id", "tenantmembership.tenant_id"],
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint("tenant_id", "code", name="uq_department_tenant_code"),
+        UniqueConstraint("id", "tenant_id", name="uq_department_id_tenant_id"),
+    )
+
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(
+        default=DEFAULT_TENANT_ID,
+        foreign_key="tenant.id",
+        index=True,
+        ondelete="CASCADE",
+    )
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
@@ -154,6 +796,7 @@ class Department(DepartmentBase, table=True):
 
 class DepartmentPublic(DepartmentBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -167,7 +810,7 @@ class DepartmentsPublic(SQLModel):
 
 class PostBase(SQLModel):
     name: str = Field(min_length=1, max_length=100)
-    code: str = Field(min_length=1, max_length=100, unique=True, index=True)
+    code: str = Field(min_length=1, max_length=100, index=True)
     sort: int = 0
     is_active: bool = True
     remark: str | None = Field(default=None, max_length=255)
@@ -186,7 +829,18 @@ class PostUpdate(SQLModel):
 
 
 class Post(PostBase, table=True):
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "code", name="uq_post_tenant_code"),
+        UniqueConstraint("id", "tenant_id", name="uq_post_id_tenant_id"),
+    )
+
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(
+        default=DEFAULT_TENANT_ID,
+        foreign_key="tenant.id",
+        index=True,
+        ondelete="CASCADE",
+    )
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
@@ -199,6 +853,7 @@ class Post(PostBase, table=True):
 
 class PostPublic(PostBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -211,11 +866,23 @@ class PostsPublic(SQLModel):
 
 
 class UserPost(SQLModel, table=True):
-    user_id: uuid.UUID = Field(
-        foreign_key="user.id", primary_key=True, ondelete="CASCADE"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["user_id", "tenant_id"],
+            ["tenantmembership.user_id", "tenantmembership.tenant_id"],
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["post_id", "tenant_id"],
+            ["post.id", "post.tenant_id"],
+            ondelete="CASCADE",
+        ),
     )
-    post_id: uuid.UUID = Field(
-        foreign_key="post.id", primary_key=True, ondelete="CASCADE"
+
+    user_id: uuid.UUID = Field(primary_key=True)
+    post_id: uuid.UUID = Field(primary_key=True)
+    tenant_id: uuid.UUID = Field(
+        default=DEFAULT_TENANT_ID, primary_key=True, index=True
     )
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
@@ -224,11 +891,23 @@ class UserPost(SQLModel, table=True):
 
 
 class UserRole(SQLModel, table=True):
-    user_id: uuid.UUID = Field(
-        foreign_key="user.id", primary_key=True, ondelete="CASCADE"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["user_id", "tenant_id"],
+            ["tenantmembership.user_id", "tenantmembership.tenant_id"],
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["role_id", "tenant_id"],
+            ["role.id", "role.tenant_id"],
+            ondelete="CASCADE",
+        ),
     )
-    role_id: uuid.UUID = Field(
-        foreign_key="role.id", primary_key=True, ondelete="CASCADE"
+
+    user_id: uuid.UUID = Field(primary_key=True)
+    role_id: uuid.UUID = Field(primary_key=True)
+    tenant_id: uuid.UUID = Field(
+        default=DEFAULT_TENANT_ID, primary_key=True, index=True
     )
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
@@ -250,16 +929,17 @@ class RoleMenu(SQLModel, table=True):
 
 
 class RoleBase(SQLModel):
-    code: str = Field(min_length=1, max_length=100, unique=True, index=True)
+    code: str = Field(min_length=1, max_length=100, index=True)
     name: str = Field(min_length=1, max_length=100)
     description: str | None = Field(default=None, max_length=255)
     sort: int = 0
     is_active: bool = True
     is_system: bool = False
+    data_scope: DataScope = Field(default=DataScope.SELF, sa_type=String(32))
 
 
 class RoleCreate(RoleBase):
-    pass
+    custom_department_ids: list[uuid.UUID] = Field(default_factory=list)
 
 
 class RoleUpdate(SQLModel):
@@ -269,10 +949,28 @@ class RoleUpdate(SQLModel):
     sort: int | None = None
     is_active: bool | None = None
     is_system: bool | None = None
+    data_scope: DataScope | None = None
+    custom_department_ids: list[uuid.UUID] | None = None
 
 
 class Role(RoleBase, table=True):
+    __table_args__ = (
+        CheckConstraint(
+            "data_scope IN ('all', 'department', 'department_and_children', 'self', 'custom')",
+            name="ck_role_data_scope",
+        ),
+        UniqueConstraint("tenant_id", "code", name="uq_role_tenant_code"),
+        UniqueConstraint("id", "tenant_id", name="uq_role_id_tenant_id"),
+    )
+
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(
+        default=DEFAULT_TENANT_ID,
+        foreign_key="tenant.id",
+        index=True,
+        nullable=False,
+        ondelete="CASCADE",
+    )
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
@@ -285,8 +983,10 @@ class Role(RoleBase, table=True):
 
 class RolePublic(RoleBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    custom_department_ids: list[uuid.UUID] = Field(default_factory=list)
 
 
 class RolesPublic(SQLModel):
@@ -298,6 +998,29 @@ class RolesPublic(SQLModel):
 
 class RoleMenuUpdate(SQLModel):
     menu_ids: list[uuid.UUID]
+
+
+class RoleDataScopeDepartment(SQLModel, table=True):
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["role_id", "tenant_id"],
+            ["role.id", "role.tenant_id"],
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["department_id", "tenant_id"],
+            ["department.id", "department.tenant_id"],
+            ondelete="CASCADE",
+        ),
+    )
+
+    role_id: uuid.UUID = Field(primary_key=True)
+    department_id: uuid.UUID = Field(primary_key=True)
+    tenant_id: uuid.UUID = Field(primary_key=True, index=True)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
 
 
 class UserRoleUpdate(SQLModel):
@@ -368,7 +1091,7 @@ class MenusPublic(SQLModel):
 
 
 class DictionaryTypeBase(SQLModel):
-    code: str = Field(min_length=1, max_length=100, unique=True, index=True)
+    code: str = Field(min_length=1, max_length=100, index=True)
     name: str = Field(min_length=1, max_length=100)
     description: str | None = Field(default=None, max_length=255)
     is_active: bool = True
@@ -386,7 +1109,18 @@ class DictionaryTypeUpdate(SQLModel):
 
 
 class DictionaryType(DictionaryTypeBase, table=True):
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "code", name="uq_dictionarytype_tenant_code"),
+        UniqueConstraint("id", "tenant_id", name="uq_dictionarytype_id_tenant_id"),
+    )
+
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(
+        default=DEFAULT_TENANT_ID,
+        foreign_key="tenant.id",
+        index=True,
+        ondelete="CASCADE",
+    )
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
@@ -399,6 +1133,7 @@ class DictionaryType(DictionaryTypeBase, table=True):
 
 class DictionaryTypePublic(DictionaryTypeBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -411,7 +1146,7 @@ class DictionaryTypesPublic(SQLModel):
 
 
 class DictionaryItemBase(SQLModel):
-    type_id: uuid.UUID = Field(foreign_key="dictionarytype.id")
+    type_id: uuid.UUID
     label: str = Field(min_length=1, max_length=100)
     value: str = Field(min_length=1, max_length=100)
     color: str | None = Field(default=None, max_length=50)
@@ -435,7 +1170,27 @@ class DictionaryItemUpdate(SQLModel):
 
 
 class DictionaryItem(DictionaryItemBase, table=True):
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["type_id", "tenant_id"],
+            ["dictionarytype.id", "dictionarytype.tenant_id"],
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint(
+            "tenant_id",
+            "type_id",
+            "value",
+            name="uq_dictionaryitem_tenant_type_value",
+        ),
+    )
+
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(
+        default=DEFAULT_TENANT_ID,
+        foreign_key="tenant.id",
+        index=True,
+        ondelete="CASCADE",
+    )
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
@@ -448,6 +1203,7 @@ class DictionaryItem(DictionaryItemBase, table=True):
 
 class DictionaryItemPublic(DictionaryItemBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -460,7 +1216,7 @@ class DictionaryItemsPublic(SQLModel):
 
 
 class SystemSettingBase(SQLModel):
-    key: str = Field(min_length=1, max_length=100, unique=True, index=True)
+    key: str = Field(min_length=1, max_length=100, index=True)
     name: str = Field(min_length=1, max_length=100)
     value: str = Field(default="", max_length=2000)
     value_type: str = Field(default="string", max_length=20)
@@ -485,7 +1241,17 @@ class SystemSettingUpdate(SQLModel):
 
 
 class SystemSetting(SystemSettingBase, table=True):
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "key", name="uq_systemsetting_tenant_key"),
+    )
+
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(
+        default=DEFAULT_TENANT_ID,
+        foreign_key="tenant.id",
+        index=True,
+        ondelete="CASCADE",
+    )
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
@@ -498,6 +1264,7 @@ class SystemSetting(SystemSettingBase, table=True):
 
 class SystemSettingPublic(SystemSettingBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -520,6 +1287,12 @@ class LoginLogBase(SQLModel):
 
 class LoginLog(LoginLogBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(
+        default=DEFAULT_TENANT_ID,
+        foreign_key="tenant.id",
+        index=True,
+        ondelete="CASCADE",
+    )
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
@@ -529,6 +1302,7 @@ class LoginLog(LoginLogBase, table=True):
 
 class LoginLogPublic(LoginLogBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     created_at: datetime | None = None
 
 
@@ -543,6 +1317,9 @@ class UserSession(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     user_id: uuid.UUID = Field(
         foreign_key="user.id", index=True, nullable=False, ondelete="CASCADE"
+    )
+    tenant_id: uuid.UUID = Field(
+        foreign_key="tenant.id", index=True, nullable=False, ondelete="RESTRICT"
     )
     token_jti: str = Field(max_length=64, unique=True, index=True)
     ip: str | None = Field(default=None, max_length=100)
@@ -890,6 +1667,12 @@ class OperationLogBase(SQLModel):
 
 class OperationLog(OperationLogBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(
+        default=DEFAULT_TENANT_ID,
+        foreign_key="tenant.id",
+        index=True,
+        ondelete="CASCADE",
+    )
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
@@ -899,6 +1682,7 @@ class OperationLog(OperationLogBase, table=True):
 
 class OperationLogPublic(OperationLogBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     created_at: datetime | None = None
 
 
@@ -925,6 +1709,12 @@ class FileAssetBase(SQLModel):
 
 class FileAsset(FileAssetBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(
+        default=DEFAULT_TENANT_ID,
+        foreign_key="tenant.id",
+        index=True,
+        ondelete="CASCADE",
+    )
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
@@ -934,6 +1724,7 @@ class FileAsset(FileAssetBase, table=True):
 
 class FileAssetPublic(FileAssetBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     created_at: datetime | None = None
 
 
@@ -946,7 +1737,7 @@ class FileAssetsPublic(SQLModel):
 
 class FileStorageChannelBase(SQLModel):
     name: str = Field(min_length=1, max_length=100)
-    code: str = Field(min_length=1, max_length=100, unique=True, index=True)
+    code: str = Field(min_length=1, max_length=100, index=True)
     provider: str = Field(default="local", max_length=50)
     endpoint_url: str | None = Field(default=None, max_length=500)
     region: str | None = Field(default=None, max_length=100)
@@ -962,7 +1753,21 @@ class FileStorageChannelBase(SQLModel):
 
 
 class FileStorageChannel(FileStorageChannelBase, table=True):
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "code",
+            name="uq_filestoragechannel_tenant_code",
+        ),
+    )
+
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(
+        default=DEFAULT_TENANT_ID,
+        foreign_key="tenant.id",
+        index=True,
+        ondelete="CASCADE",
+    )
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
@@ -996,6 +1801,7 @@ class FileStorageChannelUpdate(SQLModel):
 
 class FileStorageChannelPublic(FileStorageChannelBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     secret_access_key: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -1041,7 +1847,7 @@ class UploadConfigUpdate(SQLModel):
 
 class SmsChannelBase(SQLModel):
     name: str = Field(min_length=1, max_length=100)
-    code: str = Field(min_length=1, max_length=100, unique=True, index=True)
+    code: str = Field(min_length=1, max_length=100, index=True)
     provider: str = Field(default="debug", max_length=50)
     signature: str = Field(min_length=1, max_length=100)
     api_key: str | None = Field(default=None, max_length=500)
@@ -1053,7 +1859,18 @@ class SmsChannelBase(SQLModel):
 
 
 class SmsChannel(SmsChannelBase, table=True):
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "code", name="uq_smschannel_tenant_code"),
+        UniqueConstraint("id", "tenant_id", name="uq_smschannel_id_tenant_id"),
+    )
+
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(
+        default=DEFAULT_TENANT_ID,
+        foreign_key="tenant.id",
+        index=True,
+        ondelete="CASCADE",
+    )
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
@@ -1083,6 +1900,7 @@ class SmsChannelUpdate(SQLModel):
 
 class SmsChannelPublic(SmsChannelBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     api_secret: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -1097,20 +1915,33 @@ class SmsChannelsPublic(SQLModel):
 
 class SmsTemplateBase(SQLModel):
     type: str = Field(default="notification", max_length=50)
-    code: str = Field(min_length=1, max_length=100, unique=True, index=True)
+    code: str = Field(min_length=1, max_length=100, index=True)
     name: str = Field(min_length=1, max_length=100)
     content: str = Field(min_length=1, max_length=1000)
     remark: str | None = Field(default=None, max_length=255)
     api_template_id: str | None = Field(default=None, max_length=100)
-    channel_id: uuid.UUID | None = Field(
-        default=None, foreign_key="smschannel.id", ondelete="SET NULL", index=True
-    )
+    channel_id: uuid.UUID | None = Field(default=None, index=True)
     channel_code: str | None = Field(default=None, max_length=100)
     is_active: bool = True
 
 
 class SmsTemplate(SmsTemplateBase, table=True):
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["channel_id", "tenant_id"],
+            ["smschannel.id", "smschannel.tenant_id"],
+        ),
+        UniqueConstraint("tenant_id", "code", name="uq_smstemplate_tenant_code"),
+        UniqueConstraint("id", "tenant_id", name="uq_smstemplate_id_tenant_id"),
+    )
+
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(
+        default=DEFAULT_TENANT_ID,
+        foreign_key="tenant.id",
+        index=True,
+        ondelete="CASCADE",
+    )
     params: str = Field(default="", max_length=500)
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
@@ -1139,6 +1970,7 @@ class SmsTemplateUpdate(SQLModel):
 
 class SmsTemplatePublic(SmsTemplateBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     params: str
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -1163,14 +1995,27 @@ class SmsDeliveryCallback(SQLModel):
 
 
 class SmsLog(SQLModel, table=True):
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["channel_id", "tenant_id"],
+            ["smschannel.id", "smschannel.tenant_id"],
+        ),
+        ForeignKeyConstraint(
+            ["template_id", "tenant_id"],
+            ["smstemplate.id", "smstemplate.tenant_id"],
+        ),
+    )
+
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    channel_id: uuid.UUID | None = Field(
-        default=None, foreign_key="smschannel.id", ondelete="SET NULL"
+    tenant_id: uuid.UUID = Field(
+        default=DEFAULT_TENANT_ID,
+        foreign_key="tenant.id",
+        index=True,
+        ondelete="CASCADE",
     )
+    channel_id: uuid.UUID | None = None
     channel_code: str | None = Field(default=None, max_length=100)
-    template_id: uuid.UUID | None = Field(
-        default=None, foreign_key="smstemplate.id", ondelete="SET NULL"
-    )
+    template_id: uuid.UUID | None = None
     template_code: str | None = Field(default=None, max_length=100)
     template_name: str | None = Field(default=None, max_length=100)
     template_type: str | None = Field(default=None, max_length=50)
@@ -1201,6 +2046,7 @@ class SmsLog(SQLModel, table=True):
 
 class SmsLogPublic(SQLModel):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     channel_id: uuid.UUID | None = None
     channel_code: str | None = None
     template_id: uuid.UUID | None = None
@@ -1233,7 +2079,7 @@ class SmsLogsPublic(SQLModel):
 
 class MailAccountBase(SQLModel):
     name: str = Field(min_length=1, max_length=100)
-    code: str = Field(min_length=1, max_length=100, unique=True, index=True)
+    code: str = Field(min_length=1, max_length=100, index=True)
     email: EmailStr = Field(max_length=255)
     username: str | None = Field(default=None, max_length=255)
     password: str | None = Field(default=None, max_length=500)
@@ -1247,7 +2093,18 @@ class MailAccountBase(SQLModel):
 
 
 class MailAccount(MailAccountBase, table=True):
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "code", name="uq_mailaccount_tenant_code"),
+        UniqueConstraint("id", "tenant_id", name="uq_mailaccount_id_tenant_id"),
+    )
+
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(
+        default=DEFAULT_TENANT_ID,
+        foreign_key="tenant.id",
+        index=True,
+        ondelete="CASCADE",
+    )
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
@@ -1279,6 +2136,7 @@ class MailAccountUpdate(SQLModel):
 
 class MailAccountPublic(MailAccountBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     password: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -1293,10 +2151,8 @@ class MailAccountsPublic(SQLModel):
 
 class MailTemplateBase(SQLModel):
     name: str = Field(min_length=1, max_length=100)
-    code: str = Field(min_length=1, max_length=100, unique=True, index=True)
-    account_id: uuid.UUID | None = Field(
-        default=None, foreign_key="mailaccount.id", ondelete="SET NULL", index=True
-    )
+    code: str = Field(min_length=1, max_length=100, index=True)
+    account_id: uuid.UUID | None = Field(default=None, index=True)
     nickname: str | None = Field(default=None, max_length=100)
     title: str = Field(min_length=1, max_length=255)
     content: str = Field(min_length=1, max_length=20_000)
@@ -1305,7 +2161,22 @@ class MailTemplateBase(SQLModel):
 
 
 class MailTemplate(MailTemplateBase, table=True):
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["account_id", "tenant_id"],
+            ["mailaccount.id", "mailaccount.tenant_id"],
+        ),
+        UniqueConstraint("tenant_id", "code", name="uq_mailtemplate_tenant_code"),
+        UniqueConstraint("id", "tenant_id", name="uq_mailtemplate_id_tenant_id"),
+    )
+
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(
+        default=DEFAULT_TENANT_ID,
+        foreign_key="tenant.id",
+        index=True,
+        ondelete="CASCADE",
+    )
     account_code: str | None = Field(default=None, max_length=100)
     params: str = Field(default="", max_length=500)
     created_at: datetime | None = Field(
@@ -1335,6 +2206,7 @@ class MailTemplateUpdate(SQLModel):
 
 class MailTemplatePublic(MailTemplateBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     account_code: str | None = None
     params: str
     created_at: datetime | None = None
@@ -1354,15 +2226,28 @@ class MailSendRequest(SQLModel):
 
 
 class MailLog(SQLModel, table=True):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    account_id: uuid.UUID | None = Field(
-        default=None, foreign_key="mailaccount.id", ondelete="SET NULL"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["account_id", "tenant_id"],
+            ["mailaccount.id", "mailaccount.tenant_id"],
+        ),
+        ForeignKeyConstraint(
+            ["template_id", "tenant_id"],
+            ["mailtemplate.id", "mailtemplate.tenant_id"],
+        ),
     )
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(
+        default=DEFAULT_TENANT_ID,
+        foreign_key="tenant.id",
+        index=True,
+        ondelete="CASCADE",
+    )
+    account_id: uuid.UUID | None = None
     account_code: str | None = Field(default=None, max_length=100)
     account_name: str | None = Field(default=None, max_length=100)
-    template_id: uuid.UUID | None = Field(
-        default=None, foreign_key="mailtemplate.id", ondelete="SET NULL"
-    )
+    template_id: uuid.UUID | None = None
     template_code: str | None = Field(default=None, max_length=100)
     template_name: str | None = Field(default=None, max_length=100)
     from_email: str = Field(max_length=255)
@@ -1389,6 +2274,7 @@ class MailLog(SQLModel, table=True):
 
 class MailLogPublic(SQLModel):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     account_id: uuid.UUID | None = None
     account_code: str | None = None
     account_name: str | None = None
@@ -1445,7 +2331,17 @@ class NoticeUpdate(SQLModel):
 
 
 class Notice(NoticeBase, table=True):
+    __table_args__ = (
+        UniqueConstraint("id", "tenant_id", name="uq_notice_id_tenant_id"),
+    )
+
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(
+        default=DEFAULT_TENANT_ID,
+        foreign_key="tenant.id",
+        index=True,
+        ondelete="CASCADE",
+    )
     created_by: uuid.UUID | None = Field(
         default=None, foreign_key="user.id", ondelete="SET NULL"
     )
@@ -1462,6 +2358,7 @@ class Notice(NoticeBase, table=True):
 
 class NoticePublic(NoticeBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     created_by: uuid.UUID | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -1475,14 +2372,10 @@ class NoticesPublic(SQLModel):
 
 
 class UserMessageBase(SQLModel):
-    user_id: uuid.UUID = Field(foreign_key="user.id", index=True, ondelete="CASCADE")
-    notice_id: uuid.UUID | None = Field(
-        default=None, foreign_key="notice.id", ondelete="SET NULL", index=True
-    )
+    user_id: uuid.UUID = Field(index=True)
+    notice_id: uuid.UUID | None = Field(default=None, index=True)
     template_id: uuid.UUID | None = Field(
         default=None,
-        foreign_key="sitemessagetemplate.id",
-        ondelete="SET NULL",
         index=True,
     )
     template_code: str | None = Field(default=None, max_length=100, index=True)
@@ -1497,7 +2390,29 @@ class UserMessageBase(SQLModel):
 
 
 class UserMessage(UserMessageBase, table=True):
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["user_id", "tenant_id"],
+            ["tenantmembership.user_id", "tenantmembership.tenant_id"],
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["notice_id", "tenant_id"],
+            ["notice.id", "notice.tenant_id"],
+        ),
+        ForeignKeyConstraint(
+            ["template_id", "tenant_id"],
+            ["sitemessagetemplate.id", "sitemessagetemplate.tenant_id"],
+        ),
+    )
+
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(
+        default=DEFAULT_TENANT_ID,
+        foreign_key="tenant.id",
+        index=True,
+        ondelete="CASCADE",
+    )
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
         sa_type=DateTime(timezone=True),  # type: ignore
@@ -1507,6 +2422,7 @@ class UserMessage(UserMessageBase, table=True):
 
 class UserMessagePublic(UserMessageBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     created_at: datetime | None = None
 
 
@@ -1519,7 +2435,7 @@ class UserMessagesPublic(SQLModel):
 
 class SiteMessageTemplateBase(SQLModel):
     name: str = Field(min_length=1, max_length=100)
-    code: str = Field(min_length=1, max_length=100, unique=True, index=True)
+    code: str = Field(min_length=1, max_length=100, index=True)
     sender_name: str = Field(default="系统通知", min_length=1, max_length=100)
     content: str = Field(min_length=1, max_length=10_000)
     type: str = Field(default="notification", max_length=50)
@@ -1528,7 +2444,26 @@ class SiteMessageTemplateBase(SQLModel):
 
 
 class SiteMessageTemplate(SiteMessageTemplateBase, table=True):
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "code",
+            name="uq_sitemessagetemplate_tenant_code",
+        ),
+        UniqueConstraint(
+            "id",
+            "tenant_id",
+            name="uq_sitemessagetemplate_id_tenant_id",
+        ),
+    )
+
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(
+        default=DEFAULT_TENANT_ID,
+        foreign_key="tenant.id",
+        index=True,
+        ondelete="CASCADE",
+    )
     params: str = Field(default="", max_length=500)
     created_at: datetime | None = Field(
         default_factory=get_datetime_utc,
@@ -1556,6 +2491,7 @@ class SiteMessageTemplateUpdate(SQLModel):
 
 class SiteMessageTemplatePublic(SiteMessageTemplateBase):
     id: uuid.UUID
+    tenant_id: uuid.UUID
     params: str
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -1616,6 +2552,9 @@ class Item(ItemBase, table=True):
     owner_id: uuid.UUID = Field(
         foreign_key="user.id", nullable=False, ondelete="CASCADE"
     )
+    tenant_id: uuid.UUID = Field(
+        foreign_key="tenant.id", index=True, nullable=False, ondelete="RESTRICT"
+    )
     owner: User | None = Relationship(back_populates="items")
 
 
@@ -1623,6 +2562,7 @@ class Item(ItemBase, table=True):
 class ItemPublic(ItemBase):
     id: uuid.UUID
     owner_id: uuid.UUID
+    tenant_id: uuid.UUID
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -1684,6 +2624,7 @@ class Message(SQLModel):
 class Token(SQLModel):
     access_token: str
     token_type: str = "bearer"
+    tenant_id: uuid.UUID
 
 
 class LoginCaptchaChallenge(SQLModel):
@@ -1696,6 +2637,7 @@ class LoginCaptchaChallenge(SQLModel):
 class TokenPayload(SQLModel):
     sub: str | None = None
     jti: str | None = None
+    tenant_id: uuid.UUID | None = None
 
 
 class NewPassword(SQLModel):

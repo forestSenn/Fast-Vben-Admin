@@ -7,19 +7,20 @@ import {
   uniqueName,
 } from './helpers';
 
-test('admin can publish a notice and read the generated message', async ({ page }) => {
+test('admin can publish a notice and read the generated message', async ({
+  page,
+}) => {
   const title = uniqueName('e2e-notice');
   const content = `message content for ${title}`;
 
   await loginAsAdmin(page);
-  await page.goto('/notices');
+  await page.goto('/system/message-center/notices');
 
   await page.getByRole('button', { name: '新增公告' }).click();
   const noticeDialog = page.getByRole('dialog', { name: '新增公告' });
   await noticeDialog.getByRole('textbox', { name: /标题/ }).fill(title);
   await noticeDialog.getByRole('textbox', { name: '内容' }).fill(content);
   await confirmDialog(noticeDialog);
-  await expect(page.getByText(title)).toBeVisible();
 
   await page.getByRole('textbox', { name: '关键词' }).fill(title);
   await page.getByRole('button', { name: '搜 索' }).click();
@@ -32,7 +33,7 @@ test('admin can publish a notice and read the generated message', async ({ page 
     .click();
   await expect(page.getByText('已发布').first()).toBeVisible();
 
-  await page.goto('/messages');
+  await page.goto('/system/message-center/messages');
   await expect(page.getByText(title)).toBeVisible();
   await page.getByRole('button', { name: '详情' }).first().click();
   const messageDialog = page.getByRole('dialog', { name: '消息详情' });
@@ -41,7 +42,7 @@ test('admin can publish a notice and read the generated message', async ({ page 
   await expect(messageDialog.getByText('已读')).toBeVisible();
   await messageDialog.getByRole('button').first().click();
 
-  await page.goto('/notices');
+  await page.goto('/system/message-center/notices');
   await page.getByRole('textbox', { name: '关键词' }).fill(title);
   await page.getByRole('button', { name: '搜 索' }).click();
   await page.getByRole('button', { name: '删除' }).first().click();

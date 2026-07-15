@@ -4,7 +4,12 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlmodel import col, func, select
 
-from app.api.deps import SessionDep, normalize_pagination, require_permission
+from app.api.deps import (
+    CurrentTenant,
+    SessionDep,
+    normalize_pagination,
+    require_permission,
+)
 from app.core.cache import CacheNamespace, redis_cache
 from app.models import (
     DictionaryItem,
@@ -30,12 +35,13 @@ router = APIRouter(tags=["dictionaries"])
 )
 def read_dictionary_types(
     session: SessionDep,
+    tenant_context: CurrentTenant,
     page: int = 1,
     page_size: int = 20,
     keyword: str | None = None,
 ) -> Any:
     page, page_size = normalize_pagination(page=page, page_size=page_size)
-    filters = []
+    filters = [DictionaryType.tenant_id == tenant_context.tenant_id]
     if keyword:
         pattern = f"%{keyword}%"
         filters.append(
@@ -71,15 +77,26 @@ def read_dictionary_types(
     response_model=DictionaryTypePublic,
 )
 def create_dictionary_type(
-    *, session: SessionDep, type_in: DictionaryTypeCreate
+    *,
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    type_in: DictionaryTypeCreate,
 ) -> Any:
     existing_type = session.exec(
-        select(DictionaryType).where(DictionaryType.code == type_in.code)
+        select(DictionaryType).where(
+            DictionaryType.tenant_id == tenant_context.tenant_id,
+            DictionaryType.code == type_in.code,
+        )
     ).first()
     if existing_type:
-        raise HTTPException(status_code=409, detail="Dictionary type code already exists")
+        raise HTTPException(
+            status_code=409, detail="Dictionary type code already exists"
+        )
 
-    type_ = DictionaryType.model_validate(type_in)
+    type_ = DictionaryType.model_validate(
+        type_in,
+        update={"tenant_id": tenant_context.tenant_id},
+    )
     session.add(type_)
     session.commit()
     session.refresh(type_)
@@ -93,14 +110,26 @@ def create_dictionary_type(
     response_model=DictionaryTypePublic,
 )
 def update_dictionary_type(
-    *, session: SessionDep, type_id: uuid.UUID, type_in: DictionaryTypeUpdate
+    *,
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    type_id: uuid.UUID,
+    type_in: DictionaryTypeUpdate,
 ) -> Any:
-    type_ = session.get(DictionaryType, type_id)
+    type_ = session.exec(
+        select(DictionaryType).where(
+            DictionaryType.id == type_id,
+            DictionaryType.tenant_id == tenant_context.tenant_id,
+        )
+    ).first()
     if not type_:
         raise HTTPException(status_code=404, detail="Dictionary type not found")
     if type_in.code and type_in.code != type_.code:
         existing_type = session.exec(
-            select(DictionaryType).where(DictionaryType.code == type_in.code)
+            select(DictionaryType).where(
+                DictionaryType.tenant_id == tenant_context.tenant_id,
+                DictionaryType.code == type_in.code,
+            )
         ).first()
         if existing_type:
             raise HTTPException(
@@ -121,13 +150,26 @@ def update_dictionary_type(
     dependencies=[Depends(require_permission("system:dict:delete"))],
     status_code=204,
 )
-def delete_dictionary_type(*, session: SessionDep, type_id: uuid.UUID) -> Response:
-    type_ = session.get(DictionaryType, type_id)
+def delete_dictionary_type(
+    *,
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    type_id: uuid.UUID,
+) -> Response:
+    type_ = session.exec(
+        select(DictionaryType).where(
+            DictionaryType.id == type_id,
+            DictionaryType.tenant_id == tenant_context.tenant_id,
+        )
+    ).first()
     if not type_:
         raise HTTPException(status_code=404, detail="Dictionary type not found")
 
     bound_item = session.exec(
-        select(DictionaryItem).where(DictionaryItem.type_id == type_id)
+        select(DictionaryItem).where(
+            DictionaryItem.tenant_id == tenant_context.tenant_id,
+            DictionaryItem.type_id == type_id,
+        )
     ).first()
     if bound_item:
         raise HTTPException(status_code=400, detail="Dictionary type has items")
@@ -145,6 +187,7 @@ def delete_dictionary_type(*, session: SessionDep, type_id: uuid.UUID) -> Respon
 )
 def read_dictionary_items(
     session: SessionDep,
+    tenant_context: CurrentTenant,
     type_id: uuid.UUID | None = None,
     page: int = 1,
     page_size: int = 200,
@@ -153,7 +196,7 @@ def read_dictionary_items(
     page, page_size = normalize_pagination(
         page=page, page_size=page_size, max_page_size=500
     )
-    filters = []
+    filters = [DictionaryItem.tenant_id == tenant_context.tenant_id]
     if type_id:
         filters.append(DictionaryItem.type_id == type_id)
     if keyword:
@@ -189,9 +232,14 @@ def read_dictionary_items(
     "/dictionaries/{code}/items",
     response_model=list[DictionaryItemPublic],
 )
-def read_dictionary_items_by_code(session: SessionDep, code: str) -> Any:
+def read_dictionary_items_by_code(
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    code: str,
+) -> Any:
     cache_key = redis_cache.build_versioned_key(
         CacheNamespace.DICTIONARY_ITEMS,
+        str(tenant_context.tenant_id),
         code,
     )
     cached_items = redis_cache.get_json(cache_key)
@@ -200,6 +248,7 @@ def read_dictionary_items_by_code(session: SessionDep, code: str) -> Any:
 
     type_ = session.exec(
         select(DictionaryType).where(
+            DictionaryType.tenant_id == tenant_context.tenant_id,
             DictionaryType.code == code,
             DictionaryType.is_active,
         )
@@ -209,7 +258,11 @@ def read_dictionary_items_by_code(session: SessionDep, code: str) -> Any:
 
     items = session.exec(
         select(DictionaryItem)
-        .where(DictionaryItem.type_id == type_.id, DictionaryItem.is_active)
+        .where(
+            DictionaryItem.tenant_id == tenant_context.tenant_id,
+            DictionaryItem.type_id == type_.id,
+            DictionaryItem.is_active,
+        )
         .order_by(col(DictionaryItem.sort), col(DictionaryItem.created_at))
     ).all()
     public_items = [DictionaryItemPublic.model_validate(item) for item in items]
@@ -226,12 +279,22 @@ def read_dictionary_items_by_code(session: SessionDep, code: str) -> Any:
     response_model=DictionaryItemPublic,
 )
 def create_dictionary_item(
-    *, session: SessionDep, item_in: DictionaryItemCreate
+    *,
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    item_in: DictionaryItemCreate,
 ) -> Any:
-    if not session.get(DictionaryType, item_in.type_id):
+    type_ = session.exec(
+        select(DictionaryType).where(
+            DictionaryType.id == item_in.type_id,
+            DictionaryType.tenant_id == tenant_context.tenant_id,
+        )
+    ).first()
+    if type_ is None:
         raise HTTPException(status_code=400, detail="Dictionary type does not exist")
     existing_item = session.exec(
         select(DictionaryItem).where(
+            DictionaryItem.tenant_id == tenant_context.tenant_id,
             DictionaryItem.type_id == item_in.type_id,
             DictionaryItem.value == item_in.value,
         )
@@ -241,7 +304,10 @@ def create_dictionary_item(
             status_code=409, detail="Dictionary item value already exists"
         )
 
-    item = DictionaryItem.model_validate(item_in)
+    item = DictionaryItem.model_validate(
+        item_in,
+        update={"tenant_id": tenant_context.tenant_id},
+    )
     session.add(item)
     session.commit()
     session.refresh(item)
@@ -255,17 +321,37 @@ def create_dictionary_item(
     response_model=DictionaryItemPublic,
 )
 def update_dictionary_item(
-    *, session: SessionDep, item_id: uuid.UUID, item_in: DictionaryItemUpdate
+    *,
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    item_id: uuid.UUID,
+    item_in: DictionaryItemUpdate,
 ) -> Any:
-    item = session.get(DictionaryItem, item_id)
+    item = session.exec(
+        select(DictionaryItem).where(
+            DictionaryItem.id == item_id,
+            DictionaryItem.tenant_id == tenant_context.tenant_id,
+        )
+    ).first()
     if not item:
         raise HTTPException(status_code=404, detail="Dictionary item not found")
-    if item_in.type_id and not session.get(DictionaryType, item_in.type_id):
-        raise HTTPException(status_code=400, detail="Dictionary type does not exist")
+    if item_in.type_id:
+        target_type = session.exec(
+            select(DictionaryType).where(
+                DictionaryType.id == item_in.type_id,
+                DictionaryType.tenant_id == tenant_context.tenant_id,
+            )
+        ).first()
+        if target_type is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Dictionary type does not exist",
+            )
     next_type_id = item_in.type_id or item.type_id
     next_value = item_in.value or item.value
     existing_item = session.exec(
         select(DictionaryItem).where(
+            DictionaryItem.tenant_id == tenant_context.tenant_id,
             DictionaryItem.type_id == next_type_id,
             DictionaryItem.value == next_value,
             DictionaryItem.id != item.id,
@@ -290,8 +376,18 @@ def update_dictionary_item(
     dependencies=[Depends(require_permission("system:dict:delete"))],
     status_code=204,
 )
-def delete_dictionary_item(*, session: SessionDep, item_id: uuid.UUID) -> Response:
-    item = session.get(DictionaryItem, item_id)
+def delete_dictionary_item(
+    *,
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    item_id: uuid.UUID,
+) -> Response:
+    item = session.exec(
+        select(DictionaryItem).where(
+            DictionaryItem.id == item_id,
+            DictionaryItem.tenant_id == tenant_context.tenant_id,
+        )
+    ).first()
     if not item:
         raise HTTPException(status_code=404, detail="Dictionary item not found")
 

@@ -5,12 +5,15 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlmodel import col, func, or_, select
 
 from app.api.deps import (
+    CurrentTenant,
     CurrentUser,
     OptionalCurrentUser,
+    OptionalTenantId,
     SessionDep,
     normalize_pagination,
     require_permission,
 )
+from app.core.quotas import ensure_file_quota
 from app.models import (
     FileAsset,
     FileAssetPublic,
@@ -58,19 +61,34 @@ def ensure_supported_provider(provider: str) -> None:
 
 
 def ensure_channel_code_unique(
-    *, session: SessionDep, code: str, exclude_id: uuid.UUID | None = None
+    *,
+    session: SessionDep,
+    tenant_id: uuid.UUID,
+    code: str,
+    exclude_id: uuid.UUID | None = None,
 ) -> None:
-    statement = select(FileStorageChannel).where(FileStorageChannel.code == code)
+    statement = select(FileStorageChannel).where(
+        FileStorageChannel.tenant_id == tenant_id,
+        FileStorageChannel.code == code,
+    )
     if exclude_id:
         statement = statement.where(FileStorageChannel.id != exclude_id)
     if session.exec(statement).first():
-        raise HTTPException(status_code=409, detail="Storage channel code already exists")
+        raise HTTPException(
+            status_code=409, detail="Storage channel code already exists"
+        )
 
 
 def clear_default_storage_channels(
-    *, session: SessionDep, exclude_id: uuid.UUID | None = None
+    *,
+    session: SessionDep,
+    tenant_id: uuid.UUID,
+    exclude_id: uuid.UUID | None = None,
 ) -> None:
-    statement = select(FileStorageChannel).where(FileStorageChannel.is_default)
+    statement = select(FileStorageChannel).where(
+        FileStorageChannel.tenant_id == tenant_id,
+        FileStorageChannel.is_default,
+    )
     if exclude_id:
         statement = statement.where(FileStorageChannel.id != exclude_id)
     for channel in session.exec(statement).all():
@@ -82,14 +100,21 @@ def clear_default_storage_channels(
 def ensure_upload_setting(
     *,
     session: SessionDep,
+    tenant_id: uuid.UUID,
     key: str,
     name: str,
     value: str,
     value_type: str,
 ) -> SystemSetting:
-    setting = session.exec(select(SystemSetting).where(SystemSetting.key == key)).first()
+    setting = session.exec(
+        select(SystemSetting).where(
+            SystemSetting.tenant_id == tenant_id,
+            SystemSetting.key == key,
+        )
+    ).first()
     if not setting:
         setting = SystemSetting(
+            tenant_id=tenant_id,
             key=key,
             name=name,
             value=value,
@@ -113,6 +138,7 @@ def ensure_upload_setting(
 )
 def read_files(
     session: SessionDep,
+    tenant_context: CurrentTenant,
     page: int = 1,
     page_size: int = 20,
     keyword: str | None = None,
@@ -120,7 +146,7 @@ def read_files(
     is_public: bool | None = None,
 ) -> Any:
     page, page_size = normalize_pagination(page=page, page_size=page_size)
-    filters = []
+    filters = [FileAsset.tenant_id == tenant_context.tenant_id]
     if keyword:
         pattern = f"%{keyword}%"
         filters.append(
@@ -165,11 +191,31 @@ def read_files(
 def upload_file(
     session: SessionDep,
     current_user: CurrentUser,
+    tenant_context: CurrentTenant,
     file: UploadFile = File(...),
     is_public: bool | None = None,
 ) -> Any:
-    stored_file = save_upload_file(file, session=session)
+    stored_file = save_upload_file(
+        file,
+        session=session,
+        tenant_id=tenant_context.tenant_id,
+    )
+    try:
+        ensure_file_quota(
+            session=session,
+            tenant_id=tenant_context.tenant_id,
+            incoming_size=stored_file.size,
+        )
+    except HTTPException:
+        delete_stored_file(
+            stored_file.storage_provider,
+            stored_file.storage_path,
+            session,
+            tenant_context.tenant_id,
+        )
+        raise
     file_asset = FileAsset(
+        tenant_id=tenant_context.tenant_id,
         original_name=stored_file.original_name,
         stored_name=stored_file.stored_name,
         content_type=stored_file.content_type,
@@ -180,7 +226,11 @@ def upload_file(
         storage_path=stored_file.storage_path,
         public_url=None,
         uploader_id=current_user.id,
-        is_public=is_public if is_public is not None else get_upload_default_public(session),
+        is_public=(
+            is_public
+            if is_public is not None
+            else get_upload_default_public(session, tenant_context.tenant_id)
+        ),
     )
     session.add(file_asset)
     session.commit()
@@ -197,21 +247,33 @@ def upload_file(
     dependencies=[Depends(require_permission("system:file:list"))],
     response_model=StorageConfigPublic,
 )
-def read_storage_config(session: SessionDep) -> StorageConfigPublic:
-    channel = get_default_storage_channel(session)
+def read_storage_config(
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+) -> StorageConfigPublic:
+    channel = get_default_storage_channel(session, tenant_context.tenant_id)
     return StorageConfigPublic(
         provider=channel.provider,
         channel_id=channel.id,
         channel_name=channel.name,
-        max_size_mb=get_upload_max_size_mb(session),
-        allowed_extensions=get_upload_allowed_extensions(session),
-        default_public=get_upload_default_public(session),
-        s3_bucket=channel.bucket if channel.provider == "s3" else None,
-        s3_endpoint_url=(
-            channel.endpoint_url if channel.provider == "s3" else None
+        max_size_mb=get_upload_max_size_mb(session, tenant_context.tenant_id),
+        allowed_extensions=get_upload_allowed_extensions(
+            session,
+            tenant_context.tenant_id,
         ),
+        default_public=get_upload_default_public(
+            session,
+            tenant_context.tenant_id,
+        ),
+        s3_bucket=channel.bucket if channel.provider == "s3" else None,
+        s3_endpoint_url=(channel.endpoint_url if channel.provider == "s3" else None),
         presigned_url_expire_seconds=(
-            get_presigned_url_expire_seconds(session) if channel.provider == "s3" else None
+            get_presigned_url_expire_seconds(
+                session,
+                tenant_context.tenant_id,
+            )
+            if channel.provider == "s3"
+            else None
         ),
     )
 
@@ -223,6 +285,7 @@ def read_storage_config(session: SessionDep) -> StorageConfigPublic:
 )
 def read_storage_channels(
     session: SessionDep,
+    tenant_context: CurrentTenant,
     page: int = 1,
     page_size: int = 20,
     keyword: str | None = None,
@@ -230,7 +293,7 @@ def read_storage_channels(
     is_active: bool | None = None,
 ) -> Any:
     page, page_size = normalize_pagination(page=page, page_size=page_size)
-    filters = []
+    filters = [FileStorageChannel.tenant_id == tenant_context.tenant_id]
     if keyword:
         pattern = f"%{keyword}%"
         filters.append(
@@ -254,7 +317,10 @@ def read_storage_channels(
     if filters:
         statement = statement.where(*filters)
     statement = (
-        statement.order_by(col(FileStorageChannel.is_default).desc(), col(FileStorageChannel.created_at))
+        statement.order_by(
+            col(FileStorageChannel.is_default).desc(),
+            col(FileStorageChannel.created_at),
+        )
         .offset((page - 1) * page_size)
         .limit(page_size)
     )
@@ -273,13 +339,26 @@ def read_storage_channels(
     response_model=FileStorageChannelPublic,
 )
 def create_storage_channel(
-    *, session: SessionDep, channel_in: FileStorageChannelCreate
+    *,
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    channel_in: FileStorageChannelCreate,
 ) -> Any:
     ensure_supported_provider(channel_in.provider)
-    ensure_channel_code_unique(session=session, code=channel_in.code)
-    channel = FileStorageChannel.model_validate(channel_in)
+    ensure_channel_code_unique(
+        session=session,
+        tenant_id=tenant_context.tenant_id,
+        code=channel_in.code,
+    )
+    channel = FileStorageChannel.model_validate(
+        channel_in,
+        update={"tenant_id": tenant_context.tenant_id},
+    )
     if channel.is_default:
-        clear_default_storage_channels(session=session)
+        clear_default_storage_channels(
+            session=session,
+            tenant_id=tenant_context.tenant_id,
+        )
     session.add(channel)
     session.commit()
     session.refresh(channel)
@@ -292,9 +371,18 @@ def create_storage_channel(
     response_model=FileStorageChannelPublic,
 )
 def update_storage_channel(
-    *, session: SessionDep, channel_id: uuid.UUID, channel_in: FileStorageChannelUpdate
+    *,
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    channel_id: uuid.UUID,
+    channel_in: FileStorageChannelUpdate,
 ) -> Any:
-    channel = session.get(FileStorageChannel, channel_id)
+    channel = session.exec(
+        select(FileStorageChannel).where(
+            FileStorageChannel.id == channel_id,
+            FileStorageChannel.tenant_id == tenant_context.tenant_id,
+        )
+    ).first()
     if not channel:
         raise HTTPException(status_code=404, detail="Storage channel not found")
 
@@ -302,9 +390,18 @@ def update_storage_channel(
     if "provider" in update_data and update_data["provider"] is not None:
         ensure_supported_provider(update_data["provider"])
     if "code" in update_data and update_data["code"] != channel.code:
-        ensure_channel_code_unique(session=session, code=update_data["code"])
+        ensure_channel_code_unique(
+            session=session,
+            tenant_id=tenant_context.tenant_id,
+            code=update_data["code"],
+            exclude_id=channel.id,
+        )
     if update_data.get("is_default"):
-        clear_default_storage_channels(session=session, exclude_id=channel.id)
+        clear_default_storage_channels(
+            session=session,
+            tenant_id=tenant_context.tenant_id,
+            exclude_id=channel.id,
+        )
 
     channel.sqlmodel_update(update_data)
     channel.updated_at = get_datetime_utc()
@@ -318,8 +415,17 @@ def update_storage_channel(
     "/storage-channels/{channel_id}/test",
     dependencies=[Depends(require_permission("system:file:channel:update"))],
 )
-def test_storage_channel(session: SessionDep, channel_id: uuid.UUID) -> dict[str, str]:
-    channel = session.get(FileStorageChannel, channel_id)
+def test_storage_channel(
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    channel_id: uuid.UUID,
+) -> dict[str, str]:
+    channel = session.exec(
+        select(FileStorageChannel).where(
+            FileStorageChannel.id == channel_id,
+            FileStorageChannel.tenant_id == tenant_context.tenant_id,
+        )
+    ).first()
     if not channel:
         raise HTTPException(status_code=404, detail="Storage channel not found")
     if channel.provider == "local":
@@ -336,12 +442,23 @@ def test_storage_channel(session: SessionDep, channel_id: uuid.UUID) -> dict[str
     dependencies=[Depends(require_permission("system:file:channel:delete"))],
     status_code=204,
 )
-def delete_storage_channel(session: SessionDep, channel_id: uuid.UUID) -> None:
-    channel = session.get(FileStorageChannel, channel_id)
+def delete_storage_channel(
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    channel_id: uuid.UUID,
+) -> None:
+    channel = session.exec(
+        select(FileStorageChannel).where(
+            FileStorageChannel.id == channel_id,
+            FileStorageChannel.tenant_id == tenant_context.tenant_id,
+        )
+    ).first()
     if not channel:
         raise HTTPException(status_code=404, detail="Storage channel not found")
     if channel.is_default:
-        raise HTTPException(status_code=400, detail="Cannot delete default storage channel")
+        raise HTTPException(
+            status_code=400, detail="Cannot delete default storage channel"
+        )
     session.delete(channel)
     session.commit()
     return None
@@ -352,12 +469,24 @@ def delete_storage_channel(session: SessionDep, channel_id: uuid.UUID) -> None:
     dependencies=[Depends(require_permission("system:file:config:list"))],
     response_model=UploadConfigPublic,
 )
-def read_upload_config(session: SessionDep) -> UploadConfigPublic:
+def read_upload_config(
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+) -> UploadConfigPublic:
     return UploadConfigPublic(
-        max_size_mb=get_upload_max_size_mb(session),
-        allowed_extensions=get_upload_allowed_extensions(session),
-        default_public=get_upload_default_public(session),
-        presigned_url_expire_seconds=get_presigned_url_expire_seconds(session),
+        max_size_mb=get_upload_max_size_mb(session, tenant_context.tenant_id),
+        allowed_extensions=get_upload_allowed_extensions(
+            session,
+            tenant_context.tenant_id,
+        ),
+        default_public=get_upload_default_public(
+            session,
+            tenant_context.tenant_id,
+        ),
+        presigned_url_expire_seconds=get_presigned_url_expire_seconds(
+            session,
+            tenant_context.tenant_id,
+        ),
     )
 
 
@@ -367,7 +496,10 @@ def read_upload_config(session: SessionDep) -> UploadConfigPublic:
     response_model=UploadConfigPublic,
 )
 def update_upload_config(
-    *, session: SessionDep, config_in: UploadConfigUpdate
+    *,
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    config_in: UploadConfigUpdate,
 ) -> UploadConfigPublic:
     update_data = config_in.model_dump(exclude_unset=True)
     setting_specs = {
@@ -384,22 +516,35 @@ def update_upload_config(
         key, name, value_type = setting_specs[field]
         ensure_upload_setting(
             session=session,
+            tenant_id=tenant_context.tenant_id,
             key=key,
             name=name,
             value=str(value).lower() if isinstance(value, bool) else str(value),
             value_type=value_type,
         )
     session.commit()
-    return read_upload_config(session)
+    return read_upload_config(session, tenant_context)
 
 
 @router.get("/{file_id}", response_model=FileAssetPublic)
-def read_file(session: SessionDep, current_user: CurrentUser, file_id: uuid.UUID) -> Any:
-    file_asset = session.get(FileAsset, file_id)
+def read_file(
+    session: SessionDep,
+    current_user: CurrentUser,
+    tenant_context: CurrentTenant,
+    file_id: uuid.UUID,
+) -> Any:
+    file_asset = session.exec(
+        select(FileAsset).where(
+            FileAsset.id == file_id,
+            FileAsset.tenant_id == tenant_context.tenant_id,
+        )
+    ).first()
     if not file_asset:
         raise HTTPException(status_code=404, detail="File not found")
     if not current_user.is_superuser and file_asset.uploader_id != current_user.id:
-        raise HTTPException(status_code=403, detail="The user doesn't have enough privileges")
+        raise HTTPException(
+            status_code=403, detail="The user doesn't have enough privileges"
+        )
     return file_asset
 
 
@@ -407,9 +552,15 @@ def read_file(session: SessionDep, current_user: CurrentUser, file_id: uuid.UUID
 def read_file_download_url(
     session: SessionDep,
     current_user: CurrentUser,
+    tenant_context: CurrentTenant,
     file_id: uuid.UUID,
 ) -> FileDownloadUrl:
-    file_asset = session.get(FileAsset, file_id)
+    file_asset = session.exec(
+        select(FileAsset).where(
+            FileAsset.id == file_id,
+            FileAsset.tenant_id == tenant_context.tenant_id,
+        )
+    ).first()
     if not file_asset:
         raise HTTPException(status_code=404, detail="File not found")
     if (
@@ -417,16 +568,19 @@ def read_file_download_url(
         and not current_user.is_superuser
         and file_asset.uploader_id != current_user.id
     ):
-        raise HTTPException(status_code=403, detail="The user doesn't have enough privileges")
+        raise HTTPException(
+            status_code=403, detail="The user doesn't have enough privileges"
+        )
     return FileDownloadUrl(
         url=get_presigned_download_url(
             storage_provider=file_asset.storage_provider,
             storage_path=file_asset.storage_path,
             fallback_url=f"/api/v1/files/{file_asset.id}/download",
             session=session,
+            tenant_id=tenant_context.tenant_id,
         ),
         expires_in=(
-            get_presigned_url_expire_seconds(session)
+            get_presigned_url_expire_seconds(session, tenant_context.tenant_id)
             if file_asset.storage_provider == "s3"
             else None
         ),
@@ -437,22 +591,23 @@ def read_file_download_url(
 def download_file(
     session: SessionDep,
     current_user: OptionalCurrentUser,
+    request_tenant_id: OptionalTenantId,
     file_id: uuid.UUID,
 ) -> Any:
     file_asset = session.get(FileAsset, file_id)
     if not file_asset:
         raise HTTPException(status_code=404, detail="File not found")
-    if (
-        not file_asset.is_public
-        and (
-            not current_user
-            or (
-                not current_user.is_superuser
-                and file_asset.uploader_id != current_user.id
-            )
+    if current_user and request_tenant_id != file_asset.tenant_id:
+        raise HTTPException(
+            status_code=403, detail="The user doesn't have enough privileges"
         )
+    if not file_asset.is_public and (
+        not current_user
+        or (not current_user.is_superuser and file_asset.uploader_id != current_user.id)
     ):
-        raise HTTPException(status_code=403, detail="The user doesn't have enough privileges")
+        raise HTTPException(
+            status_code=403, detail="The user doesn't have enough privileges"
+        )
 
     return get_file_download_response(
         storage_provider=file_asset.storage_provider,
@@ -460,6 +615,7 @@ def download_file(
         filename=file_asset.original_name,
         content_type=file_asset.content_type,
         session=session,
+        tenant_id=file_asset.tenant_id,
     )
 
 
@@ -468,11 +624,25 @@ def download_file(
     dependencies=[Depends(require_permission("system:file:delete"))],
     status_code=204,
 )
-def delete_file(session: SessionDep, file_id: uuid.UUID) -> None:
-    file_asset = session.get(FileAsset, file_id)
+def delete_file(
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    file_id: uuid.UUID,
+) -> None:
+    file_asset = session.exec(
+        select(FileAsset).where(
+            FileAsset.id == file_id,
+            FileAsset.tenant_id == tenant_context.tenant_id,
+        )
+    ).first()
     if not file_asset:
         raise HTTPException(status_code=404, detail="File not found")
-    delete_stored_file(file_asset.storage_provider, file_asset.storage_path, session)
+    delete_stored_file(
+        file_asset.storage_provider,
+        file_asset.storage_path,
+        session,
+        file_asset.tenant_id,
+    )
     session.delete(file_asset)
     session.commit()
     return None
@@ -482,14 +652,39 @@ def delete_file(session: SessionDep, file_id: uuid.UUID) -> None:
 def upload_avatar(
     session: SessionDep,
     current_user: CurrentUser,
+    tenant_context: CurrentTenant,
     file: UploadFile = File(...),
 ) -> Any:
-    stored_file = save_upload_file(file, session=session)
+    stored_file = save_upload_file(
+        file,
+        session=session,
+        tenant_id=tenant_context.tenant_id,
+    )
+    try:
+        ensure_file_quota(
+            session=session,
+            tenant_id=tenant_context.tenant_id,
+            incoming_size=stored_file.size,
+        )
+    except HTTPException:
+        delete_stored_file(
+            stored_file.storage_provider,
+            stored_file.storage_path,
+            session,
+            tenant_context.tenant_id,
+        )
+        raise
     if stored_file.extension not in {"gif", "jpeg", "jpg", "png", "webp"}:
-        delete_stored_file(stored_file.storage_provider, stored_file.storage_path, session)
+        delete_stored_file(
+            stored_file.storage_provider,
+            stored_file.storage_path,
+            session,
+            tenant_context.tenant_id,
+        )
         raise HTTPException(status_code=400, detail="Avatar must be an image")
 
     file_asset = FileAsset(
+        tenant_id=tenant_context.tenant_id,
         original_name=stored_file.original_name,
         stored_name=stored_file.stored_name,
         content_type=stored_file.content_type,

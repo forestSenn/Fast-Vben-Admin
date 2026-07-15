@@ -335,4 +335,6 @@ def test_s3_storage_upload_download_and_presigned_url(
             headers=superuser_token_headers,
         )
         assert url_response.status_code == 200
-        assert url_response.json()["url"] == "https://storage.example.test/signed-download"
+        assert (
+            url_response.json()["url"] == "https://storage.example.test/signed-download"
+        )

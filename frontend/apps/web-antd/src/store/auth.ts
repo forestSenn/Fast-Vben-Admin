@@ -16,6 +16,9 @@ import {
   getUserInfoApi,
   loginApi,
   logoutApi,
+  registerTenantApi,
+  smsLoginApi,
+  switchTenantApi,
 } from '#/api';
 import { $t } from '#/locales';
 
@@ -51,7 +54,9 @@ export const useAuthStore = defineStore('auth', () => {
     } else {
       onSuccess
         ? await onSuccess?.()
-        : await router.push(userInfo.homePath || preferences.app.defaultHomePath);
+        : await router.push(
+            userInfo.homePath || preferences.app.defaultHomePath,
+          );
     }
 
     if (userInfo?.realName) {
@@ -91,6 +96,32 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function authSmsLogin(
+    params: Parameters<typeof smsLoginApi>[0],
+    onSuccess?: () => Promise<void> | void,
+  ) {
+    try {
+      loginLoading.value = true;
+      const { accessToken } = await smsLoginApi(params);
+      return await completeLogin(accessToken, onSuccess);
+    } finally {
+      loginLoading.value = false;
+    }
+  }
+
+  async function authTenantRegister(
+    params: Parameters<typeof registerTenantApi>[0],
+    onSuccess?: () => Promise<void> | void,
+  ) {
+    try {
+      loginLoading.value = true;
+      const { accessToken } = await registerTenantApi(params);
+      return await completeLogin(accessToken, onSuccess);
+    } finally {
+      loginLoading.value = false;
+    }
+  }
+
   async function logout(redirect: boolean = true) {
     try {
       await logoutApi();
@@ -117,6 +148,14 @@ export const useAuthStore = defineStore('auth', () => {
     return userInfo;
   }
 
+  async function switchTenant(tenantId: string) {
+    const { accessToken } = await switchTenantApi({ tenant_id: tenantId });
+    accessStore.setAccessToken(accessToken);
+    const homePath =
+      userStore.userInfo?.homePath || preferences.app.defaultHomePath;
+    window.location.assign(router.resolve(homePath).href);
+  }
+
   function $reset() {
     loginLoading.value = false;
   }
@@ -125,8 +164,11 @@ export const useAuthStore = defineStore('auth', () => {
     $reset,
     authEnterpriseOidcLogin,
     authLogin,
+    authSmsLogin,
+    authTenantRegister,
     fetchUserInfo,
     loginLoading,
     logout,
+    switchTenant,
   };
 });

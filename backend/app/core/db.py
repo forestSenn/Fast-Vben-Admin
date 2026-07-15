@@ -2,6 +2,7 @@ from sqlmodel import Session, create_engine, select
 
 from app import crud
 from app.core.config import settings
+from app.core.tenancy import DEFAULT_TENANT_CODE, DEFAULT_TENANT_ID
 from app.models import (
     Department,
     DictionaryItem,
@@ -17,6 +18,10 @@ from app.models import (
     SmsChannel,
     SmsTemplate,
     SystemSetting,
+    Tenant,
+    TenantInitializationTemplate,
+    TenantMembership,
+    TenantPlan,
     User,
     UserCreate,
     UserRole,
@@ -40,6 +45,13 @@ def init_db(session: Session) -> None:
     # This works because the models are already imported and registered from app.models
     # SQLModel.metadata.create_all(engine)
 
+    default_plan = ensure_default_tenant_plan(session=session)
+    default_template = ensure_default_tenant_template(session=session)
+    default_tenant = ensure_default_tenant(
+        session=session,
+        plan=default_plan,
+        template=default_template,
+    )
     user = session.exec(
         select(User).where(User.email == settings.FIRST_SUPERUSER)
     ).first()
@@ -51,54 +63,169 @@ def init_db(session: Session) -> None:
         )
         user = crud.create_user(session=session, user_create=user_in)
 
-    seed_system_data(session=session, superuser=user)
+    ensure_tenant_membership(
+        session=session,
+        user=user,
+        tenant=default_tenant,
+        is_default=True,
+    )
+
+    seed_system_data(session=session, superuser=user, tenant=default_tenant)
 
 
-def seed_system_data(*, session: Session, superuser: User) -> None:
+def ensure_default_tenant_plan(*, session: Session) -> TenantPlan:
+    plan = session.exec(select(TenantPlan).where(TenantPlan.code == "standard")).first()
+    if plan is not None:
+        return plan
+    plan = TenantPlan(
+        code="standard",
+        name="Standard",
+        description="Default unlimited plan.",
+        is_default=True,
+        is_active=True,
+    )
+    session.add(plan)
+    session.flush()
+    return plan
+
+
+def ensure_default_tenant_template(*, session: Session) -> TenantInitializationTemplate:
+    template = session.exec(
+        select(TenantInitializationTemplate).where(
+            TenantInitializationTemplate.code == "standard"
+        )
+    ).first()
+    if template is not None:
+        return template
+    template = TenantInitializationTemplate(
+        code="standard",
+        name="Standard",
+        description="Default full tenant initialization.",
+        is_default=True,
+        is_active=True,
+    )
+    session.add(template)
+    session.flush()
+    return template
+
+
+def ensure_default_tenant(
+    *,
+    session: Session,
+    plan: TenantPlan,
+    template: TenantInitializationTemplate,
+) -> Tenant:
+    tenant = session.exec(
+        select(Tenant).where(Tenant.code == DEFAULT_TENANT_CODE)
+    ).first()
+    if tenant:
+        return tenant
+    tenant = Tenant(
+        id=DEFAULT_TENANT_ID,
+        code=DEFAULT_TENANT_CODE,
+        name="Default Tenant",
+        description="Tenant created for data that predates v2.0 multi-tenancy.",
+        plan_id=plan.id,
+        initialization_template_id=template.id,
+    )
+    session.add(tenant)
+    session.flush()
+    return tenant
+
+
+def ensure_tenant_membership(
+    *,
+    session: Session,
+    user: User,
+    tenant: Tenant,
+    is_default: bool = False,
+) -> TenantMembership:
+    membership = session.exec(
+        select(TenantMembership).where(
+            TenantMembership.user_id == user.id,
+            TenantMembership.tenant_id == tenant.id,
+        )
+    ).first()
+    if membership:
+        if is_default and not membership.is_default:
+            membership.is_default = True
+            session.add(membership)
+        return membership
+    membership = TenantMembership(
+        user_id=user.id,
+        tenant_id=tenant.id,
+        is_default=is_default,
+    )
+    session.add(membership)
+    session.flush()
+    return membership
+
+
+def seed_system_data(*, session: Session, superuser: User, tenant: Tenant) -> None:
     default_department = ensure_department(
         session=session,
+        tenant=tenant,
         code="headquarters",
         name="总部",
         sort=0,
     )
-    if superuser.department_id is None:
-        superuser.department_id = default_department.id
-        session.add(superuser)
+    superuser_membership = ensure_tenant_membership(
+        session=session,
+        user=superuser,
+        tenant=tenant,
+    )
+    if superuser_membership.department_id is None:
+        superuser_membership.department_id = default_department.id
+        session.add(superuser_membership)
 
     super_admin = ensure_role(
         session=session,
+        tenant=tenant,
         code="super_admin",
         name="超级管理员",
         description="内置超级管理员角色，拥有全部权限。",
         sort=0,
         is_system=True,
+        data_scope="all",
     )
     admin = ensure_role(
         session=session,
+        tenant=tenant,
         code="admin",
         name="系统管理员",
         description="可维护系统管理基础数据。",
         sort=10,
         is_system=True,
+        data_scope="all",
     )
     default_user = ensure_role(
         session=session,
+        tenant=tenant,
         code="user",
         name="普通用户",
         description="默认普通用户角色。",
         sort=100,
         is_system=True,
+        data_scope="self",
     )
 
-    seed_dictionaries(session=session)
-    seed_posts(session=session)
-    seed_settings(session=session)
-    seed_storage_channels(session=session)
-    seed_sms_channels(session=session)
-    seed_mail_accounts(session=session)
-    seed_site_message_templates(session=session)
+    seed_dictionaries(session=session, tenant=tenant)
+    seed_posts(session=session, tenant=tenant)
+    seed_settings(session=session, tenant=tenant)
+    seed_storage_channels(session=session, tenant=tenant)
+    seed_sms_channels(session=session, tenant=tenant)
+    seed_mail_accounts(session=session, tenant=tenant)
+    seed_site_message_templates(session=session, tenant=tenant)
     menus = seed_menus(session=session)
-    bind_role_menus(session=session, role=super_admin, menus=menus)
+    bind_role_menus(
+        session=session,
+        role=super_admin,
+        menus=[
+            menu
+            for menu in menus
+            if not (menu.permission_code or "").startswith("platform:")
+        ],
+    )
     bind_role_menus(
         session=session,
         role=admin,
@@ -135,13 +262,23 @@ def seed_system_data(*, session: Session, superuser: User) -> None:
 
 
 def ensure_department(
-    *, session: Session, code: str, name: str, sort: int
+    *, session: Session, tenant: Tenant, code: str, name: str, sort: int
 ) -> Department:
-    department = session.exec(select(Department).where(Department.code == code)).first()
+    department = session.exec(
+        select(Department).where(
+            Department.tenant_id == tenant.id,
+            Department.code == code,
+        )
+    ).first()
     if department:
         return department
 
-    department = Department(code=code, name=name, sort=sort)
+    department = Department(
+        tenant_id=tenant.id,
+        code=code,
+        name=name,
+        sort=sort,
+    )
     session.add(department)
     session.flush()
     return department
@@ -150,34 +287,160 @@ def ensure_department(
 def ensure_role(
     *,
     session: Session,
+    tenant: Tenant,
     code: str,
     name: str,
     description: str,
     sort: int,
     is_system: bool,
+    data_scope: str,
 ) -> Role:
-    role = session.exec(select(Role).where(Role.code == code)).first()
+    role = session.exec(
+        select(Role).where(Role.tenant_id == tenant.id, Role.code == code)
+    ).first()
     if role:
+        if role.data_scope != data_scope:
+            role.data_scope = data_scope  # type: ignore[assignment]
+            session.add(role)
         return role
 
     role = Role(
+        tenant_id=tenant.id,
         code=code,
         name=name,
         description=description,
         sort=sort,
         is_system=is_system,
+        data_scope=data_scope,
     )
     session.add(role)
     session.flush()
     return role
 
 
-def ensure_post(*, session: Session, code: str, name: str, sort: int) -> Post:
-    post = session.exec(select(Post).where(Post.code == code)).first()
+def provision_tenant_roles(
+    *,
+    session: Session,
+    tenant: Tenant,
+    template: TenantInitializationTemplate,
+    owner: User | None = None,
+) -> tuple[Role, Role, Role]:
+    default_department = ensure_department(
+        session=session,
+        tenant=tenant,
+        code=template.root_department_code,
+        name=template.root_department_name,
+        sort=0,
+    )
+    if template.seed_posts:
+        seed_posts(session=session, tenant=tenant)
+    if template.seed_dictionaries:
+        seed_dictionaries(session=session, tenant=tenant)
+    if template.seed_settings:
+        seed_settings(session=session, tenant=tenant)
+    if template.seed_storage_channels:
+        seed_storage_channels(session=session, tenant=tenant)
+    if template.seed_message_templates:
+        seed_site_message_templates(session=session, tenant=tenant)
+    if template.seed_sms_channels:
+        seed_sms_channels(session=session, tenant=tenant)
+    if template.seed_mail_accounts:
+        seed_mail_accounts(session=session, tenant=tenant)
+    super_admin = ensure_role(
+        session=session,
+        tenant=tenant,
+        code="super_admin",
+        name="超级管理员",
+        description="租户内置超级管理员角色，拥有全部租户权限。",
+        sort=0,
+        is_system=True,
+        data_scope="all",
+    )
+    admin = ensure_role(
+        session=session,
+        tenant=tenant,
+        code="admin",
+        name="系统管理员",
+        description="可维护当前租户的系统管理数据。",
+        sort=10,
+        is_system=True,
+        data_scope="all",
+    )
+    default_user = ensure_role(
+        session=session,
+        tenant=tenant,
+        code="user",
+        name="普通用户",
+        description="当前租户的默认普通用户角色。",
+        sort=100,
+        is_system=True,
+        data_scope="self",
+    )
+    menus = seed_menus(session=session)
+    bind_role_menus(
+        session=session,
+        role=super_admin,
+        menus=[
+            menu
+            for menu in menus
+            if not (menu.permission_code or "").startswith("platform:")
+        ],
+    )
+    bind_role_menus(
+        session=session,
+        role=admin,
+        menus=[
+            menu
+            for menu in menus
+            if menu.permission_code
+            and (
+                menu.permission_code.startswith("system:")
+                or menu.permission_code in {"dashboard:view", "personal:message:list"}
+            )
+            or menu.type == "directory"
+        ],
+    )
+    bind_role_menus(
+        session=session,
+        role=default_user,
+        menus=[
+            menu
+            for menu in menus
+            if menu.permission_code
+            in {
+                "dashboard:view",
+                "personal:message:list",
+                "business:item:list",
+                "business:item:create",
+                "business:item:update",
+                "business:item:delete",
+            }
+        ],
+    )
+    if owner is not None:
+        membership = ensure_tenant_membership(
+            session=session,
+            user=owner,
+            tenant=tenant,
+            is_default=False,
+        )
+        if membership.department_id is None:
+            membership.department_id = default_department.id
+            session.add(membership)
+        bind_user_role(session=session, user=owner, role=super_admin)
+    return super_admin, admin, default_user
+
+
+def ensure_post(
+    *, session: Session, tenant: Tenant, code: str, name: str, sort: int
+) -> Post:
+    post = session.exec(
+        select(Post).where(Post.tenant_id == tenant.id, Post.code == code)
+    ).first()
     if post:
         return post
 
-    post = Post(code=code, name=name, sort=sort)
+    post = Post(tenant_id=tenant.id, code=code, name=name, sort=sort)
     session.add(post)
     session.flush()
     return post
@@ -196,6 +459,7 @@ def ensure_menu(
     icon: str | None = None,
     permission_code: str | None = None,
     is_visible: bool = True,
+    is_active: bool = True,
 ) -> Menu:
     menu = None
     if permission_code:
@@ -217,6 +481,7 @@ def ensure_menu(
             "icon": icon,
             "sort": sort,
             "is_visible": is_visible,
+            "is_active": is_active,
         }.items():
             if value is not None and getattr(menu, field) != value:
                 setattr(menu, field, value)
@@ -237,6 +502,7 @@ def ensure_menu(
         permission_code=permission_code,
         sort=sort,
         is_visible=is_visible,
+        is_active=is_active,
     )
     session.add(menu)
     session.flush()
@@ -273,6 +539,42 @@ def seed_menus(*, session: Session) -> list[Menu]:
         route_name="BasicSettings",
         icon="lucide:settings-2",
         sort=15,
+    )
+    tenants = ensure_menu(
+        session=session,
+        title="menu.systemTenants",
+        type="menu",
+        parent_id=system.id,
+        route_path="/system/tenants",
+        route_name="SystemTenants",
+        component="#/views/system/tenants/index.vue",
+        icon="lucide:building-2",
+        permission_code="platform:tenant:list",
+        sort=5,
+    )
+    tenant_plans = ensure_menu(
+        session=session,
+        title="menu.systemTenantPlans",
+        type="menu",
+        parent_id=system.id,
+        route_path="/system/tenant-plans",
+        route_name="SystemTenantPlans",
+        component="#/views/system/tenant-plans/index.vue",
+        icon="lucide:package",
+        permission_code="platform:plan:list",
+        sort=6,
+    )
+    tenant_templates = ensure_menu(
+        session=session,
+        title="menu.systemTenantTemplates",
+        type="menu",
+        parent_id=system.id,
+        route_path="/system/tenant-templates",
+        route_name="SystemTenantTemplates",
+        component="#/views/system/tenant-templates/index.vue",
+        icon="lucide:layout-template",
+        permission_code="platform:template:list",
+        sort=7,
     )
     users = ensure_menu(
         session=session,
@@ -542,7 +844,7 @@ def seed_menus(*, session: Session) -> list[Menu]:
         title="menu.notices",
         type="menu",
         parent_id=message_center.id,
-        route_path="/message-center/notices",
+        route_path="/system/message-center/notices",
         route_name="Notices",
         component="#/views/notices/index.vue",
         icon="lucide:megaphone",
@@ -554,7 +856,7 @@ def seed_menus(*, session: Session) -> list[Menu]:
         title="menu.messages",
         type="menu",
         parent_id=message_center.id,
-        route_path="/message-center/messages",
+        route_path="/system/message-center/messages",
         route_name="Messages",
         component="#/views/messages/index.vue",
         icon="lucide:mail",
@@ -701,8 +1003,30 @@ def seed_menus(*, session: Session) -> list[Menu]:
         permission_code="business:item:list",
         sort=20,
     )
+    workflow = ensure_menu(
+        session=session,
+        title="menu.workflows",
+        type="menu",
+        route_path="/workflows",
+        route_name="Workflows",
+        component="#/views/workflows/index.vue",
+        icon="lucide:workflow",
+        permission_code="workflow:task:list",
+        sort=30,
+        is_active=settings.BPM_ENABLED,
+    )
+    workflow_menus = [workflow]
 
     button_permissions = [
+        (tenants.id, "新增租户", "platform:tenant:create", 6),
+        (tenants.id, "编辑租户", "platform:tenant:update", 7),
+        (tenants.id, "停用租户", "platform:tenant:delete", 8),
+        (tenant_plans.id, "新增套餐", "platform:plan:create", 9),
+        (tenant_plans.id, "编辑套餐", "platform:plan:update", 10),
+        (tenant_plans.id, "删除套餐", "platform:plan:delete", 11),
+        (tenant_templates.id, "新增模板", "platform:template:create", 12),
+        (tenant_templates.id, "编辑模板", "platform:template:update", 13),
+        (tenant_templates.id, "删除模板", "platform:template:delete", 14),
         (users.id, "新增用户", "system:user:create", 11),
         (users.id, "编辑用户", "system:user:update", 12),
         (users.id, "删除用户", "system:user:delete", 13),
@@ -787,6 +1111,13 @@ def seed_menus(*, session: Session) -> list[Menu]:
         (items.id, "编辑示例", "business:item:update", 52),
         (items.id, "删除示例", "business:item:delete", 53),
     ]
+    button_permissions.extend(
+        [
+            (workflow.id, "管理流程定义", "workflow:definition:manage", 31),
+            (workflow.id, "发起流程", "workflow:instance:start", 32),
+            (workflow.id, "管理全部任务", "workflow:task:manage", 33),
+        ]
+    )
     buttons = [
         ensure_menu(
             session=session,
@@ -799,10 +1130,17 @@ def seed_menus(*, session: Session) -> list[Menu]:
         )
         for parent_id, title, permission_code, sort in button_permissions
     ]
+    for button in buttons:
+        if button.permission_code and button.permission_code.startswith("workflow:"):
+            button.is_active = settings.BPM_ENABLED
+            session.add(button)
     return [
         dashboard,
         system,
         basic_settings,
+        tenants,
+        tenant_plans,
+        tenant_templates,
         users,
         roles,
         menus,
@@ -838,6 +1176,7 @@ def seed_menus(*, session: Session) -> list[Menu]:
         mail_templates,
         mail_logs,
         items,
+        *workflow_menus,
         *buttons,
     ]
 
@@ -880,7 +1219,9 @@ def remove_obsolete_menus(*, session: Session) -> None:
         parent_ids = {
             menu.parent_id for menu in remaining.values() if menu.parent_id in remaining
         }
-        leaves = [menu for menu_id, menu in remaining.items() if menu_id not in parent_ids]
+        leaves = [
+            menu for menu_id, menu in remaining.items() if menu_id not in parent_ids
+        ]
         for menu in leaves:
             session.delete(menu)
             remaining.pop(menu.id)
@@ -934,20 +1275,43 @@ def migrate_directory_menu(
     session.flush()
 
 
-def seed_posts(*, session: Session) -> None:
-    ensure_post(session=session, code="manager", name="经理", sort=10)
-    ensure_post(session=session, code="developer", name="开发工程师", sort=20)
-    ensure_post(session=session, code="operator", name="运营专员", sort=30)
+def seed_posts(*, session: Session, tenant: Tenant) -> None:
+    ensure_post(session=session, tenant=tenant, code="manager", name="经理", sort=10)
+    ensure_post(
+        session=session,
+        tenant=tenant,
+        code="developer",
+        name="开发工程师",
+        sort=20,
+    )
+    ensure_post(
+        session=session, tenant=tenant, code="operator", name="运营专员", sort=30
+    )
 
 
 def ensure_dictionary_type(
-    *, session: Session, code: str, name: str, description: str | None = None
+    *,
+    session: Session,
+    tenant: Tenant,
+    code: str,
+    name: str,
+    description: str | None = None,
 ) -> DictionaryType:
-    type_ = session.exec(select(DictionaryType).where(DictionaryType.code == code)).first()
+    type_ = session.exec(
+        select(DictionaryType).where(
+            DictionaryType.tenant_id == tenant.id,
+            DictionaryType.code == code,
+        )
+    ).first()
     if type_:
         return type_
 
-    type_ = DictionaryType(code=code, name=name, description=description)
+    type_ = DictionaryType(
+        tenant_id=tenant.id,
+        code=code,
+        name=name,
+        description=description,
+    )
     session.add(type_)
     session.flush()
     return type_
@@ -964,6 +1328,7 @@ def ensure_dictionary_item(
 ) -> DictionaryItem:
     item = session.exec(
         select(DictionaryItem).where(
+            DictionaryItem.tenant_id == type_.tenant_id,
             DictionaryItem.type_id == type_.id,
             DictionaryItem.value == value,
         )
@@ -972,6 +1337,7 @@ def ensure_dictionary_item(
         return item
 
     item = DictionaryItem(
+        tenant_id=type_.tenant_id,
         type_id=type_.id,
         label=label,
         value=value,
@@ -983,9 +1349,10 @@ def ensure_dictionary_item(
     return item
 
 
-def seed_dictionaries(*, session: Session) -> None:
+def seed_dictionaries(*, session: Session, tenant: Tenant) -> None:
     user_status = ensure_dictionary_type(
         session=session,
+        tenant=tenant,
         code="user_status",
         name="用户状态",
         description="用户启用状态",
@@ -999,15 +1366,19 @@ def seed_dictionaries(*, session: Session) -> None:
 
     yes_no = ensure_dictionary_type(
         session=session,
+        tenant=tenant,
         code="yes_no",
         name="是否",
         description="通用是否选项",
     )
     ensure_dictionary_item(session=session, type_=yes_no, label="是", value="yes")
-    ensure_dictionary_item(session=session, type_=yes_no, label="否", value="no", sort=1)
+    ensure_dictionary_item(
+        session=session, type_=yes_no, label="否", value="no", sort=1
+    )
 
     business_status = ensure_dictionary_type(
         session=session,
+        tenant=tenant,
         code="business_status",
         name="业务状态",
         description="示例业务状态",
@@ -1029,15 +1400,21 @@ def seed_dictionaries(*, session: Session) -> None:
     )
     user_type = ensure_dictionary_type(
         session=session,
+        tenant=tenant,
         code="user_type",
         name="用户类型",
         description="登录主体类型",
     )
-    ensure_dictionary_item(session=session, type_=user_type, label="管理后台", value="admin")
-    ensure_dictionary_item(session=session, type_=user_type, label="移动端", value="member", sort=1)
+    ensure_dictionary_item(
+        session=session, type_=user_type, label="管理后台", value="admin"
+    )
+    ensure_dictionary_item(
+        session=session, type_=user_type, label="移动端", value="member", sort=1
+    )
 
     oauth2_grant_type = ensure_dictionary_type(
         session=session,
+        tenant=tenant,
         code="system_oauth2_grant_type",
         name="OAuth 2.0 授权类型",
         description="OAuth 2.0 客户端授权模式",
@@ -1061,6 +1438,7 @@ def seed_dictionaries(*, session: Session) -> None:
 
     social_type = ensure_dictionary_type(
         session=session,
+        tenant=tenant,
         code="system_social_type",
         name="社交类型",
         description="第三方登录平台类型",
@@ -1086,6 +1464,7 @@ def seed_dictionaries(*, session: Session) -> None:
 def ensure_setting(
     *,
     session: Session,
+    tenant: Tenant,
     key: str,
     name: str,
     value: str,
@@ -1095,11 +1474,17 @@ def ensure_setting(
     is_public: bool = False,
     is_system: bool = False,
 ) -> SystemSetting:
-    setting = session.exec(select(SystemSetting).where(SystemSetting.key == key)).first()
+    setting = session.exec(
+        select(SystemSetting).where(
+            SystemSetting.tenant_id == tenant.id,
+            SystemSetting.key == key,
+        )
+    ).first()
     if setting:
         return setting
 
     setting = SystemSetting(
+        tenant_id=tenant.id,
         key=key,
         name=name,
         value=value,
@@ -1114,9 +1499,10 @@ def ensure_setting(
     return setting
 
 
-def seed_settings(*, session: Session) -> None:
+def seed_settings(*, session: Session, tenant: Tenant) -> None:
     ensure_setting(
         session=session,
+        tenant=tenant,
         key="system.name",
         name="系统名称",
         value="Fast Vben Admin",
@@ -1128,6 +1514,7 @@ def seed_settings(*, session: Session) -> None:
     )
     ensure_setting(
         session=session,
+        tenant=tenant,
         key="system.default_page_size",
         name="默认分页大小",
         value="20",
@@ -1138,6 +1525,7 @@ def seed_settings(*, session: Session) -> None:
     )
     ensure_setting(
         session=session,
+        tenant=tenant,
         key="auth.allow_register",
         name="是否开放注册",
         value="false",
@@ -1149,6 +1537,7 @@ def seed_settings(*, session: Session) -> None:
     )
     ensure_setting(
         session=session,
+        tenant=tenant,
         key="upload.max_size_mb",
         name="上传大小限制 MB",
         value="10",
@@ -1159,6 +1548,7 @@ def seed_settings(*, session: Session) -> None:
     )
     ensure_setting(
         session=session,
+        tenant=tenant,
         key="upload.allowed_extensions",
         name="允许上传扩展名",
         value=settings.UPLOAD_ALLOWED_EXTENSIONS,
@@ -1169,6 +1559,7 @@ def seed_settings(*, session: Session) -> None:
     )
     ensure_setting(
         session=session,
+        tenant=tenant,
         key="upload.default_public",
         name="默认公开访问",
         value="false",
@@ -1179,6 +1570,7 @@ def seed_settings(*, session: Session) -> None:
     )
     ensure_setting(
         session=session,
+        tenant=tenant,
         key="upload.presigned_url_expire_seconds",
         name="下载链接有效期秒数",
         value=str(settings.S3_PRESIGNED_URL_EXPIRE_SECONDS),
@@ -1189,15 +1581,19 @@ def seed_settings(*, session: Session) -> None:
     )
 
 
-def seed_storage_channels(*, session: Session) -> None:
+def seed_storage_channels(*, session: Session, tenant: Tenant) -> None:
     existing_default = session.exec(
-        select(FileStorageChannel).where(FileStorageChannel.is_default)
+        select(FileStorageChannel).where(
+            FileStorageChannel.tenant_id == tenant.id,
+            FileStorageChannel.is_default,
+        )
     ).first()
     if existing_default:
         return
 
     provider = settings.STORAGE_PROVIDER
     channel = FileStorageChannel(
+        tenant_id=tenant.id,
         name="本地存储" if provider == "local" else "默认对象存储",
         code="local" if provider == "local" else "default-s3",
         provider=provider,
@@ -1217,12 +1613,16 @@ def seed_storage_channels(*, session: Session) -> None:
     session.flush()
 
 
-def seed_sms_channels(*, session: Session) -> None:
+def seed_sms_channels(*, session: Session, tenant: Tenant) -> None:
     debug_channel = session.exec(
-        select(SmsChannel).where(SmsChannel.code == "debug")
+        select(SmsChannel).where(
+            SmsChannel.tenant_id == tenant.id,
+            SmsChannel.code == "debug",
+        )
     ).first()
     if not debug_channel:
         debug_channel = SmsChannel(
+            tenant_id=tenant.id,
             name="本地调试渠道",
             code="debug",
             provider="debug",
@@ -1235,11 +1635,15 @@ def seed_sms_channels(*, session: Session) -> None:
         session.flush()
 
     sample_template = session.exec(
-        select(SmsTemplate).where(SmsTemplate.code == "verify_code")
+        select(SmsTemplate).where(
+            SmsTemplate.tenant_id == tenant.id,
+            SmsTemplate.code == "verify_code",
+        )
     ).first()
     if not sample_template:
         session.add(
             SmsTemplate(
+                tenant_id=tenant.id,
                 type="verification",
                 code="verify_code",
                 name="验证码",
@@ -1254,15 +1658,19 @@ def seed_sms_channels(*, session: Session) -> None:
         session.flush()
 
 
-def seed_mail_accounts(*, session: Session) -> None:
+def seed_mail_accounts(*, session: Session, tenant: Tenant) -> None:
     if not settings.SMTP_HOST or not settings.EMAILS_FROM_EMAIL:
         return
 
     default_account = session.exec(
-        select(MailAccount).where(MailAccount.code == "default")
+        select(MailAccount).where(
+            MailAccount.tenant_id == tenant.id,
+            MailAccount.code == "default",
+        )
     ).first()
     if not default_account:
         default_account = MailAccount(
+            tenant_id=tenant.id,
             name="系统邮箱账号",
             code="default",
             email=settings.EMAILS_FROM_EMAIL,
@@ -1280,11 +1688,15 @@ def seed_mail_accounts(*, session: Session) -> None:
         session.flush()
 
     sample_template = session.exec(
-        select(MailTemplate).where(MailTemplate.code == "welcome_mail")
+        select(MailTemplate).where(
+            MailTemplate.tenant_id == tenant.id,
+            MailTemplate.code == "welcome_mail",
+        )
     ).first()
     if not sample_template:
         session.add(
             MailTemplate(
+                tenant_id=tenant.id,
                 code="welcome_mail",
                 name="欢迎邮件",
                 account_id=default_account.id,
@@ -1300,13 +1712,17 @@ def seed_mail_accounts(*, session: Session) -> None:
         session.flush()
 
 
-def seed_site_message_templates(*, session: Session) -> None:
+def seed_site_message_templates(*, session: Session, tenant: Tenant) -> None:
     welcome_template = session.exec(
-        select(SiteMessageTemplate).where(SiteMessageTemplate.code == "system_notice")
+        select(SiteMessageTemplate).where(
+            SiteMessageTemplate.tenant_id == tenant.id,
+            SiteMessageTemplate.code == "system_notice",
+        )
     ).first()
     if not welcome_template:
         session.add(
             SiteMessageTemplate(
+                tenant_id=tenant.id,
                 code="system_notice",
                 name="通知公告",
                 sender_name="通知公告",
@@ -1334,7 +1750,17 @@ def bind_role_menus(*, session: Session, role: Role, menus: list[Menu]) -> None:
 
 def bind_user_role(*, session: Session, user: User, role: Role) -> None:
     existing = session.exec(
-        select(UserRole).where(UserRole.user_id == user.id, UserRole.role_id == role.id)
+        select(UserRole).where(
+            UserRole.user_id == user.id,
+            UserRole.role_id == role.id,
+            UserRole.tenant_id == role.tenant_id,
+        )
     ).first()
     if not existing:
-        session.add(UserRole(user_id=user.id, role_id=role.id))
+        session.add(
+            UserRole(
+                user_id=user.id,
+                role_id=role.id,
+                tenant_id=role.tenant_id,
+            )
+        )

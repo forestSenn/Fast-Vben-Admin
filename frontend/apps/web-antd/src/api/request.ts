@@ -113,6 +113,9 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
 
   client.addResponseInterceptor({
     rejected: async (error) => {
+      if (error?.config?.skipErrorMessage) {
+        error.__skipErrorMessage = true;
+      }
       if (isAuthenticationFailure(error) || isCurrentUserMissing(error)) {
         error.__skipErrorMessage = true;
         await doReAuthenticate();

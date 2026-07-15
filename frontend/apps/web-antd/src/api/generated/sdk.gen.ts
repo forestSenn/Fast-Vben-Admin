@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape, urlSearchParamsBodySerializer } from './client';
 import { client } from './client.gen';
-import type { DashboardReadDashboardAnalyticsData, DashboardReadDashboardAnalyticsResponses, DepartmentsCreateDepartmentData, DepartmentsCreateDepartmentErrors, DepartmentsCreateDepartmentResponses, DepartmentsDeleteDepartmentData, DepartmentsDeleteDepartmentErrors, DepartmentsDeleteDepartmentResponses, DepartmentsReadDepartmentsData, DepartmentsReadDepartmentsErrors, DepartmentsReadDepartmentsResponses, DepartmentsUpdateDepartmentData, DepartmentsUpdateDepartmentErrors, DepartmentsUpdateDepartmentResponses, DictionariesCreateDictionaryItemData, DictionariesCreateDictionaryItemErrors, DictionariesCreateDictionaryItemResponses, DictionariesCreateDictionaryTypeData, DictionariesCreateDictionaryTypeErrors, DictionariesCreateDictionaryTypeResponses, DictionariesDeleteDictionaryItemData, DictionariesDeleteDictionaryItemErrors, DictionariesDeleteDictionaryItemResponses, DictionariesDeleteDictionaryTypeData, DictionariesDeleteDictionaryTypeErrors, DictionariesDeleteDictionaryTypeResponses, DictionariesReadDictionaryItemsByCodeData, DictionariesReadDictionaryItemsByCodeErrors, DictionariesReadDictionaryItemsByCodeResponses, DictionariesReadDictionaryItemsData, DictionariesReadDictionaryItemsErrors, DictionariesReadDictionaryItemsResponses, DictionariesReadDictionaryTypesData, DictionariesReadDictionaryTypesErrors, DictionariesReadDictionaryTypesResponses, DictionariesUpdateDictionaryItemData, DictionariesUpdateDictionaryItemErrors, DictionariesUpdateDictionaryItemResponses, DictionariesUpdateDictionaryTypeData, DictionariesUpdateDictionaryTypeErrors, DictionariesUpdateDictionaryTypeResponses, FilesCreateStorageChannelData, FilesCreateStorageChannelErrors, FilesCreateStorageChannelResponses, FilesDeleteFileData, FilesDeleteFileErrors, FilesDeleteFileResponses, FilesDeleteStorageChannelData, FilesDeleteStorageChannelErrors, FilesDeleteStorageChannelResponses, FilesDownloadFileData, FilesDownloadFileErrors, FilesDownloadFileResponses, FilesReadFileData, FilesReadFileDownloadUrlData, FilesReadFileDownloadUrlErrors, FilesReadFileDownloadUrlResponses, FilesReadFileErrors, FilesReadFileResponses, FilesReadFilesData, FilesReadFilesErrors, FilesReadFilesResponses, FilesReadStorageChannelsData, FilesReadStorageChannelsErrors, FilesReadStorageChannelsResponses, FilesReadStorageConfigData, FilesReadStorageConfigResponses, FilesReadUploadConfigData, FilesReadUploadConfigResponses, FilesTestStorageChannelData, FilesTestStorageChannelErrors, FilesTestStorageChannelResponses, FilesUpdateStorageChannelData, FilesUpdateStorageChannelErrors, FilesUpdateStorageChannelResponses, FilesUpdateUploadConfigData, FilesUpdateUploadConfigErrors, FilesUpdateUploadConfigResponses, FilesUploadAvatarData, FilesUploadAvatarErrors, FilesUploadAvatarResponses, FilesUploadFileData, FilesUploadFileErrors, FilesUploadFileResponses, ItemsCreateItemData, ItemsCreateItemErrors, ItemsCreateItemResponses, ItemsDeleteItemData, ItemsDeleteItemErrors, ItemsDeleteItemResponses, ItemsDownloadImportTemplateData, ItemsDownloadImportTemplateResponses, ItemsExportItemsData, ItemsExportItemsResponses, ItemsImportItemsData, ItemsImportItemsErrors, ItemsImportItemsResponses, ItemsReadItemData, ItemsReadItemErrors, ItemsReadItemResponses, ItemsReadItemsData, ItemsReadItemsErrors, ItemsReadItemsResponses, ItemsUpdateItemData, ItemsUpdateItemErrors, ItemsUpdateItemResponses, LoginCompleteEnterpriseOidcLoginData, LoginCompleteEnterpriseOidcLoginErrors, LoginCompleteEnterpriseOidcLoginResponses, LoginExchangeEnterpriseOidcTicketData, LoginExchangeEnterpriseOidcTicketErrors, LoginExchangeEnterpriseOidcTicketResponses, LoginGetLoginCaptchaData, LoginGetLoginCaptchaErrors, LoginGetLoginCaptchaResponses, LoginLoginAccessTokenData, LoginLoginAccessTokenErrors, LoginLoginAccessTokenResponses, LoginReadEnterpriseOidcStatusData, LoginReadEnterpriseOidcStatusResponses, LoginRecoverPasswordData, LoginRecoverPasswordErrors, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentErrors, LoginRecoverPasswordHtmlContentResponses, LoginRecoverPasswordResponses, LoginResetPasswordData, LoginResetPasswordErrors, LoginResetPasswordResponses, LoginStartEnterpriseOidcLoginData, LoginStartEnterpriseOidcLoginResponses, LoginTestTokenData, LoginTestTokenResponses, LogsReadLoginLogsData, LogsReadLoginLogsErrors, LogsReadLoginLogsResponses, LogsReadOperationLogsData, LogsReadOperationLogsErrors, LogsReadOperationLogsResponses, MailCreateMailAccountData, MailCreateMailAccountErrors, MailCreateMailAccountResponses, MailCreateMailTemplateData, MailCreateMailTemplateErrors, MailCreateMailTemplateResponses, MailDeleteMailAccountData, MailDeleteMailAccountErrors, MailDeleteMailAccountResponses, MailDeleteMailTemplateData, MailDeleteMailTemplateErrors, MailDeleteMailTemplateResponses, MailReadMailAccountsData, MailReadMailAccountsErrors, MailReadMailAccountsResponses, MailReadMailLogsData, MailReadMailLogsErrors, MailReadMailLogsResponses, MailReadMailTemplatesData, MailReadMailTemplatesErrors, MailReadMailTemplatesResponses, MailReadSimpleMailAccountsData, MailReadSimpleMailAccountsResponses, MailResendMailLogData, MailResendMailLogErrors, MailResendMailLogResponses, MailSendTestMailData, MailSendTestMailErrors, MailSendTestMailResponses, MailUpdateMailAccountData, MailUpdateMailAccountErrors, MailUpdateMailAccountResponses, MailUpdateMailTemplateData, MailUpdateMailTemplateErrors, MailUpdateMailTemplateResponses, MenusCreateMenuData, MenusCreateMenuErrors, MenusCreateMenuResponses, MenusDeleteMenuData, MenusDeleteMenuErrors, MenusDeleteMenuResponses, MenusReadMenusData, MenusReadMenusErrors, MenusReadMenusResponses, MenusReadMyMenusData, MenusReadMyMenusResponses, MenusReadMyPermissionsData, MenusReadMyPermissionsResponses, MenusUpdateMenuData, MenusUpdateMenuErrors, MenusUpdateMenuResponses, NoticesCreateNoticeData, NoticesCreateNoticeErrors, NoticesCreateNoticeResponses, NoticesDeleteNoticeData, NoticesDeleteNoticeErrors, NoticesDeleteNoticeResponses, NoticesMarkAllMessagesReadData, NoticesMarkAllMessagesReadResponses, NoticesMarkMessageReadData, NoticesMarkMessageReadErrors, NoticesMarkMessageReadResponses, NoticesPublishNoticeData, NoticesPublishNoticeErrors, NoticesPublishNoticeResponses, NoticesReadCurrentNoticesData, NoticesReadCurrentNoticesResponses, NoticesReadMyMessagesData, NoticesReadMyMessagesErrors, NoticesReadMyMessagesResponses, NoticesReadMyUnreadMessageCountData, NoticesReadMyUnreadMessageCountResponses, NoticesReadNoticesData, NoticesReadNoticesErrors, NoticesReadNoticesResponses, NoticesUpdateNoticeData, NoticesUpdateNoticeErrors, NoticesUpdateNoticeResponses, NoticesWithdrawNoticeData, NoticesWithdrawNoticeErrors, NoticesWithdrawNoticeResponses, Oauth2AuthorizeOauth2Data, Oauth2AuthorizeOauth2Errors, Oauth2AuthorizeOauth2Responses, Oauth2CreateOauth2ClientData, Oauth2CreateOauth2ClientErrors, Oauth2CreateOauth2ClientResponses, Oauth2DeleteOauth2ClientData, Oauth2DeleteOauth2ClientErrors, Oauth2DeleteOauth2ClientResponses, Oauth2ExchangeOauth2TokenData, Oauth2ExchangeOauth2TokenErrors, Oauth2ExchangeOauth2TokenResponses, Oauth2ReadOauth2ClientData, Oauth2ReadOauth2ClientErrors, Oauth2ReadOauth2ClientResponses, Oauth2ReadOauth2ClientsData, Oauth2ReadOauth2ClientsErrors, Oauth2ReadOauth2ClientsResponses, Oauth2ReadOauth2TokensData, Oauth2ReadOauth2TokensErrors, Oauth2ReadOauth2TokensResponses, Oauth2RevokeOauth2ProtocolTokenData, Oauth2RevokeOauth2ProtocolTokenErrors, Oauth2RevokeOauth2ProtocolTokenResponses, Oauth2RevokeOauth2TokenData, Oauth2RevokeOauth2TokenErrors, Oauth2RevokeOauth2TokenResponses, Oauth2UpdateOauth2ClientData, Oauth2UpdateOauth2ClientErrors, Oauth2UpdateOauth2ClientResponses, PermissionsReadMyPermissionsData, PermissionsReadMyPermissionsResponses, PostsCreatePostData, PostsCreatePostErrors, PostsCreatePostResponses, PostsDeletePostData, PostsDeletePostErrors, PostsDeletePostResponses, PostsReadPostsData, PostsReadPostsErrors, PostsReadPostsResponses, PostsUpdatePostData, PostsUpdatePostErrors, PostsUpdatePostResponses, PrivateCreateUserData, PrivateCreateUserErrors, PrivateCreateUserResponses, RolesCreateRoleData, RolesCreateRoleErrors, RolesCreateRoleResponses, RolesDeleteRoleData, RolesDeleteRoleErrors, RolesDeleteRoleResponses, RolesReadRoleData, RolesReadRoleErrors, RolesReadRoleMenusData, RolesReadRoleMenusErrors, RolesReadRoleMenusResponses, RolesReadRoleResponses, RolesReadRolesData, RolesReadRolesErrors, RolesReadRolesResponses, RolesUpdateRoleData, RolesUpdateRoleErrors, RolesUpdateRoleMenusData, RolesUpdateRoleMenusErrors, RolesUpdateRoleMenusResponses, RolesUpdateRoleResponses, SettingsReadPublicSettingsData, SettingsReadPublicSettingsResponses, SettingsReadSettingsData, SettingsReadSettingsErrors, SettingsReadSettingsResponses, SettingsUpdateSettingData, SettingsUpdateSettingErrors, SettingsUpdateSettingResponses, SiteMessagesCreateSiteMessageTemplateData, SiteMessagesCreateSiteMessageTemplateErrors, SiteMessagesCreateSiteMessageTemplateResponses, SiteMessagesDeleteSiteMessageData, SiteMessagesDeleteSiteMessageErrors, SiteMessagesDeleteSiteMessageResponses, SiteMessagesDeleteSiteMessageTemplateData, SiteMessagesDeleteSiteMessageTemplateErrors, SiteMessagesDeleteSiteMessageTemplateResponses, SiteMessagesReadSiteMessagesData, SiteMessagesReadSiteMessagesErrors, SiteMessagesReadSiteMessagesResponses, SiteMessagesReadSiteMessageTemplatesData, SiteMessagesReadSiteMessageTemplatesErrors, SiteMessagesReadSiteMessageTemplatesResponses, SiteMessagesSendTestSiteMessageData, SiteMessagesSendTestSiteMessageErrors, SiteMessagesSendTestSiteMessageResponses, SiteMessagesUpdateSiteMessageTemplateData, SiteMessagesUpdateSiteMessageTemplateErrors, SiteMessagesUpdateSiteMessageTemplateResponses, SmsCreateSmsChannelData, SmsCreateSmsChannelErrors, SmsCreateSmsChannelResponses, SmsCreateSmsTemplateData, SmsCreateSmsTemplateErrors, SmsCreateSmsTemplateResponses, SmsDeleteSmsChannelData, SmsDeleteSmsChannelErrors, SmsDeleteSmsChannelResponses, SmsDeleteSmsTemplateData, SmsDeleteSmsTemplateErrors, SmsDeleteSmsTemplateResponses, SmsReadSimpleSmsChannelsData, SmsReadSimpleSmsChannelsResponses, SmsReadSmsChannelsData, SmsReadSmsChannelsErrors, SmsReadSmsChannelsResponses, SmsReadSmsLogsData, SmsReadSmsLogsErrors, SmsReadSmsLogsResponses, SmsReadSmsTemplatesData, SmsReadSmsTemplatesErrors, SmsReadSmsTemplatesResponses, SmsReceiveSmsCallbackData, SmsReceiveSmsCallbackErrors, SmsReceiveSmsCallbackResponses, SmsSendTestSmsData, SmsSendTestSmsErrors, SmsSendTestSmsResponses, SmsUpdateSmsChannelData, SmsUpdateSmsChannelErrors, SmsUpdateSmsChannelResponses, SmsUpdateSmsTemplateData, SmsUpdateSmsTemplateErrors, SmsUpdateSmsTemplateResponses, SocialBindSocialUserData, SocialBindSocialUserErrors, SocialBindSocialUserResponses, SocialCreateSocialClientData, SocialCreateSocialClientErrors, SocialCreateSocialClientResponses, SocialDeleteSocialClientData, SocialDeleteSocialClientErrors, SocialDeleteSocialClientResponses, SocialReadSocialClientData, SocialReadSocialClientErrors, SocialReadSocialClientResponses, SocialReadSocialClientsData, SocialReadSocialClientsErrors, SocialReadSocialClientsResponses, SocialReadSocialUserData, SocialReadSocialUserErrors, SocialReadSocialUserResponses, SocialReadSocialUsersData, SocialReadSocialUsersErrors, SocialReadSocialUsersResponses, SocialUnbindSocialUserData, SocialUnbindSocialUserErrors, SocialUnbindSocialUserResponses, SocialUpdateSocialClientData, SocialUpdateSocialClientErrors, SocialUpdateSocialClientResponses, UsersCreateUserData, UsersCreateUserErrors, UsersCreateUserResponses, UsersDeleteUserData, UsersDeleteUserErrors, UsersDeleteUserResponses, UsersDisableUserMfaData, UsersDisableUserMfaErrors, UsersDisableUserMfaResponses, UsersDownloadUserImportTemplateData, UsersDownloadUserImportTemplateResponses, UsersEnableUserMfaData, UsersEnableUserMfaErrors, UsersEnableUserMfaResponses, UsersExportUsersData, UsersExportUsersResponses, UsersImportUsersData, UsersImportUsersErrors, UsersImportUsersResponses, UsersReadUserByIdData, UsersReadUserByIdErrors, UsersReadUserByIdResponses, UsersReadUserMeData, UsersReadUserMeResponses, UsersReadUserMfaStatusData, UsersReadUserMfaStatusResponses, UsersReadUserPostsData, UsersReadUserPostsErrors, UsersReadUserPostsResponses, UsersReadUserRolesData, UsersReadUserRolesErrors, UsersReadUserRolesResponses, UsersReadUsersData, UsersReadUsersErrors, UsersReadUsersResponses, UsersResetUserMfaData, UsersResetUserMfaErrors, UsersResetUserMfaResponses, UsersSetupUserMfaData, UsersSetupUserMfaResponses, UsersUpdatePasswordMeData, UsersUpdatePasswordMeErrors, UsersUpdatePasswordMeResponses, UsersUpdateUserData, UsersUpdateUserErrors, UsersUpdateUserMeData, UsersUpdateUserMeErrors, UsersUpdateUserMeResponses, UsersUpdateUserPostsData, UsersUpdateUserPostsErrors, UsersUpdateUserPostsResponses, UsersUpdateUserResponses, UsersUpdateUserRolesData, UsersUpdateUserRolesErrors, UsersUpdateUserRolesResponses, UtilsHealthCheckData, UtilsHealthCheckResponses, UtilsHealthStatusData, UtilsHealthStatusResponses, UtilsTestEmailData, UtilsTestEmailErrors, UtilsTestEmailResponses } from './types.gen';
+import type { DashboardReadDashboardAnalyticsData, DashboardReadDashboardAnalyticsResponses, DepartmentsCreateDepartmentData, DepartmentsCreateDepartmentErrors, DepartmentsCreateDepartmentResponses, DepartmentsDeleteDepartmentData, DepartmentsDeleteDepartmentErrors, DepartmentsDeleteDepartmentResponses, DepartmentsReadDepartmentsData, DepartmentsReadDepartmentsErrors, DepartmentsReadDepartmentsResponses, DepartmentsUpdateDepartmentData, DepartmentsUpdateDepartmentErrors, DepartmentsUpdateDepartmentResponses, DictionariesCreateDictionaryItemData, DictionariesCreateDictionaryItemErrors, DictionariesCreateDictionaryItemResponses, DictionariesCreateDictionaryTypeData, DictionariesCreateDictionaryTypeErrors, DictionariesCreateDictionaryTypeResponses, DictionariesDeleteDictionaryItemData, DictionariesDeleteDictionaryItemErrors, DictionariesDeleteDictionaryItemResponses, DictionariesDeleteDictionaryTypeData, DictionariesDeleteDictionaryTypeErrors, DictionariesDeleteDictionaryTypeResponses, DictionariesReadDictionaryItemsByCodeData, DictionariesReadDictionaryItemsByCodeErrors, DictionariesReadDictionaryItemsByCodeResponses, DictionariesReadDictionaryItemsData, DictionariesReadDictionaryItemsErrors, DictionariesReadDictionaryItemsResponses, DictionariesReadDictionaryTypesData, DictionariesReadDictionaryTypesErrors, DictionariesReadDictionaryTypesResponses, DictionariesUpdateDictionaryItemData, DictionariesUpdateDictionaryItemErrors, DictionariesUpdateDictionaryItemResponses, DictionariesUpdateDictionaryTypeData, DictionariesUpdateDictionaryTypeErrors, DictionariesUpdateDictionaryTypeResponses, FilesCreateStorageChannelData, FilesCreateStorageChannelErrors, FilesCreateStorageChannelResponses, FilesDeleteFileData, FilesDeleteFileErrors, FilesDeleteFileResponses, FilesDeleteStorageChannelData, FilesDeleteStorageChannelErrors, FilesDeleteStorageChannelResponses, FilesDownloadFileData, FilesDownloadFileErrors, FilesDownloadFileResponses, FilesReadFileData, FilesReadFileDownloadUrlData, FilesReadFileDownloadUrlErrors, FilesReadFileDownloadUrlResponses, FilesReadFileErrors, FilesReadFileResponses, FilesReadFilesData, FilesReadFilesErrors, FilesReadFilesResponses, FilesReadStorageChannelsData, FilesReadStorageChannelsErrors, FilesReadStorageChannelsResponses, FilesReadStorageConfigData, FilesReadStorageConfigResponses, FilesReadUploadConfigData, FilesReadUploadConfigResponses, FilesTestStorageChannelData, FilesTestStorageChannelErrors, FilesTestStorageChannelResponses, FilesUpdateStorageChannelData, FilesUpdateStorageChannelErrors, FilesUpdateStorageChannelResponses, FilesUpdateUploadConfigData, FilesUpdateUploadConfigErrors, FilesUpdateUploadConfigResponses, FilesUploadAvatarData, FilesUploadAvatarErrors, FilesUploadAvatarResponses, FilesUploadFileData, FilesUploadFileErrors, FilesUploadFileResponses, ItemsCreateItemData, ItemsCreateItemErrors, ItemsCreateItemResponses, ItemsDeleteItemData, ItemsDeleteItemErrors, ItemsDeleteItemResponses, ItemsDownloadImportTemplateData, ItemsDownloadImportTemplateResponses, ItemsExportItemsData, ItemsExportItemsResponses, ItemsImportItemsData, ItemsImportItemsErrors, ItemsImportItemsResponses, ItemsReadItemData, ItemsReadItemErrors, ItemsReadItemResponses, ItemsReadItemsData, ItemsReadItemsErrors, ItemsReadItemsResponses, ItemsUpdateItemData, ItemsUpdateItemErrors, ItemsUpdateItemResponses, LoginCompleteEnterpriseOidcLoginData, LoginCompleteEnterpriseOidcLoginErrors, LoginCompleteEnterpriseOidcLoginResponses, LoginExchangeEnterpriseOidcTicketData, LoginExchangeEnterpriseOidcTicketErrors, LoginExchangeEnterpriseOidcTicketResponses, LoginGetLoginCaptchaData, LoginGetLoginCaptchaErrors, LoginGetLoginCaptchaResponses, LoginLoginAccessTokenData, LoginLoginAccessTokenErrors, LoginLoginAccessTokenResponses, LoginLoginWithSmsCodeData, LoginLoginWithSmsCodeErrors, LoginLoginWithSmsCodeResponses, LoginReadEnterpriseOidcStatusData, LoginReadEnterpriseOidcStatusResponses, LoginReadRegistrationStatusData, LoginReadRegistrationStatusResponses, LoginRecoverPasswordData, LoginRecoverPasswordErrors, LoginRecoverPasswordHtmlContentData, LoginRecoverPasswordHtmlContentErrors, LoginRecoverPasswordHtmlContentResponses, LoginRecoverPasswordResponses, LoginRegisterTenantData, LoginRegisterTenantErrors, LoginRegisterTenantResponses, LoginResetPasswordData, LoginResetPasswordErrors, LoginResetPasswordResponses, LoginSendLoginSmsCodeData, LoginSendLoginSmsCodeErrors, LoginSendLoginSmsCodeResponses, LoginStartEnterpriseOidcLoginData, LoginStartEnterpriseOidcLoginResponses, LoginTestTokenData, LoginTestTokenResponses, LogsReadLoginLogsData, LogsReadLoginLogsErrors, LogsReadLoginLogsResponses, LogsReadOperationLogsData, LogsReadOperationLogsErrors, LogsReadOperationLogsResponses, MailCreateMailAccountData, MailCreateMailAccountErrors, MailCreateMailAccountResponses, MailCreateMailTemplateData, MailCreateMailTemplateErrors, MailCreateMailTemplateResponses, MailDeleteMailAccountData, MailDeleteMailAccountErrors, MailDeleteMailAccountResponses, MailDeleteMailTemplateData, MailDeleteMailTemplateErrors, MailDeleteMailTemplateResponses, MailReadMailAccountsData, MailReadMailAccountsErrors, MailReadMailAccountsResponses, MailReadMailLogsData, MailReadMailLogsErrors, MailReadMailLogsResponses, MailReadMailTemplatesData, MailReadMailTemplatesErrors, MailReadMailTemplatesResponses, MailReadSimpleMailAccountsData, MailReadSimpleMailAccountsResponses, MailResendMailLogData, MailResendMailLogErrors, MailResendMailLogResponses, MailSendTestMailData, MailSendTestMailErrors, MailSendTestMailResponses, MailUpdateMailAccountData, MailUpdateMailAccountErrors, MailUpdateMailAccountResponses, MailUpdateMailTemplateData, MailUpdateMailTemplateErrors, MailUpdateMailTemplateResponses, MenusCreateMenuData, MenusCreateMenuErrors, MenusCreateMenuResponses, MenusDeleteMenuData, MenusDeleteMenuErrors, MenusDeleteMenuResponses, MenusReadMenusData, MenusReadMenusErrors, MenusReadMenusResponses, MenusReadMyMenusData, MenusReadMyMenusResponses, MenusReadMyPermissionsData, MenusReadMyPermissionsResponses, MenusUpdateMenuData, MenusUpdateMenuErrors, MenusUpdateMenuResponses, NoticesCreateNoticeData, NoticesCreateNoticeErrors, NoticesCreateNoticeResponses, NoticesDeleteNoticeData, NoticesDeleteNoticeErrors, NoticesDeleteNoticeResponses, NoticesMarkAllMessagesReadData, NoticesMarkAllMessagesReadResponses, NoticesMarkMessageReadData, NoticesMarkMessageReadErrors, NoticesMarkMessageReadResponses, NoticesPublishNoticeData, NoticesPublishNoticeErrors, NoticesPublishNoticeResponses, NoticesReadCurrentNoticesData, NoticesReadCurrentNoticesResponses, NoticesReadMyMessagesData, NoticesReadMyMessagesErrors, NoticesReadMyMessagesResponses, NoticesReadMyUnreadMessageCountData, NoticesReadMyUnreadMessageCountResponses, NoticesReadNoticesData, NoticesReadNoticesErrors, NoticesReadNoticesResponses, NoticesUpdateNoticeData, NoticesUpdateNoticeErrors, NoticesUpdateNoticeResponses, NoticesWithdrawNoticeData, NoticesWithdrawNoticeErrors, NoticesWithdrawNoticeResponses, Oauth2AuthorizeOauth2Data, Oauth2AuthorizeOauth2Errors, Oauth2AuthorizeOauth2Responses, Oauth2CreateOauth2ClientData, Oauth2CreateOauth2ClientErrors, Oauth2CreateOauth2ClientResponses, Oauth2DeleteOauth2ClientData, Oauth2DeleteOauth2ClientErrors, Oauth2DeleteOauth2ClientResponses, Oauth2ExchangeOauth2TokenData, Oauth2ExchangeOauth2TokenErrors, Oauth2ExchangeOauth2TokenResponses, Oauth2ReadOauth2ClientData, Oauth2ReadOauth2ClientErrors, Oauth2ReadOauth2ClientResponses, Oauth2ReadOauth2ClientsData, Oauth2ReadOauth2ClientsErrors, Oauth2ReadOauth2ClientsResponses, Oauth2ReadOauth2TokensData, Oauth2ReadOauth2TokensErrors, Oauth2ReadOauth2TokensResponses, Oauth2RevokeOauth2ProtocolTokenData, Oauth2RevokeOauth2ProtocolTokenErrors, Oauth2RevokeOauth2ProtocolTokenResponses, Oauth2RevokeOauth2TokenData, Oauth2RevokeOauth2TokenErrors, Oauth2RevokeOauth2TokenResponses, Oauth2UpdateOauth2ClientData, Oauth2UpdateOauth2ClientErrors, Oauth2UpdateOauth2ClientResponses, PermissionsReadMyPermissionsData, PermissionsReadMyPermissionsResponses, PostsCreatePostData, PostsCreatePostErrors, PostsCreatePostResponses, PostsDeletePostData, PostsDeletePostErrors, PostsDeletePostResponses, PostsReadPostsData, PostsReadPostsErrors, PostsReadPostsResponses, PostsUpdatePostData, PostsUpdatePostErrors, PostsUpdatePostResponses, PrivateCreateUserData, PrivateCreateUserErrors, PrivateCreateUserResponses, RolesCreateRoleData, RolesCreateRoleErrors, RolesCreateRoleResponses, RolesDeleteRoleData, RolesDeleteRoleErrors, RolesDeleteRoleResponses, RolesReadRoleData, RolesReadRoleErrors, RolesReadRoleMenusData, RolesReadRoleMenusErrors, RolesReadRoleMenusResponses, RolesReadRoleResponses, RolesReadRolesData, RolesReadRolesErrors, RolesReadRolesResponses, RolesUpdateRoleData, RolesUpdateRoleErrors, RolesUpdateRoleMenusData, RolesUpdateRoleMenusErrors, RolesUpdateRoleMenusResponses, RolesUpdateRoleResponses, SettingsReadPublicSettingsData, SettingsReadPublicSettingsResponses, SettingsReadSettingsData, SettingsReadSettingsErrors, SettingsReadSettingsResponses, SettingsUpdateSettingData, SettingsUpdateSettingErrors, SettingsUpdateSettingResponses, SiteMessagesCreateSiteMessageTemplateData, SiteMessagesCreateSiteMessageTemplateErrors, SiteMessagesCreateSiteMessageTemplateResponses, SiteMessagesDeleteSiteMessageData, SiteMessagesDeleteSiteMessageErrors, SiteMessagesDeleteSiteMessageResponses, SiteMessagesDeleteSiteMessageTemplateData, SiteMessagesDeleteSiteMessageTemplateErrors, SiteMessagesDeleteSiteMessageTemplateResponses, SiteMessagesReadSiteMessagesData, SiteMessagesReadSiteMessagesErrors, SiteMessagesReadSiteMessagesResponses, SiteMessagesReadSiteMessageTemplatesData, SiteMessagesReadSiteMessageTemplatesErrors, SiteMessagesReadSiteMessageTemplatesResponses, SiteMessagesSendTestSiteMessageData, SiteMessagesSendTestSiteMessageErrors, SiteMessagesSendTestSiteMessageResponses, SiteMessagesUpdateSiteMessageTemplateData, SiteMessagesUpdateSiteMessageTemplateErrors, SiteMessagesUpdateSiteMessageTemplateResponses, SmsCreateSmsChannelData, SmsCreateSmsChannelErrors, SmsCreateSmsChannelResponses, SmsCreateSmsTemplateData, SmsCreateSmsTemplateErrors, SmsCreateSmsTemplateResponses, SmsDeleteSmsChannelData, SmsDeleteSmsChannelErrors, SmsDeleteSmsChannelResponses, SmsDeleteSmsTemplateData, SmsDeleteSmsTemplateErrors, SmsDeleteSmsTemplateResponses, SmsReadSimpleSmsChannelsData, SmsReadSimpleSmsChannelsResponses, SmsReadSmsChannelsData, SmsReadSmsChannelsErrors, SmsReadSmsChannelsResponses, SmsReadSmsLogsData, SmsReadSmsLogsErrors, SmsReadSmsLogsResponses, SmsReadSmsTemplatesData, SmsReadSmsTemplatesErrors, SmsReadSmsTemplatesResponses, SmsReceiveSmsCallbackData, SmsReceiveSmsCallbackErrors, SmsReceiveSmsCallbackResponses, SmsSendTestSmsData, SmsSendTestSmsErrors, SmsSendTestSmsResponses, SmsUpdateSmsChannelData, SmsUpdateSmsChannelErrors, SmsUpdateSmsChannelResponses, SmsUpdateSmsTemplateData, SmsUpdateSmsTemplateErrors, SmsUpdateSmsTemplateResponses, SocialBindSocialUserData, SocialBindSocialUserErrors, SocialBindSocialUserResponses, SocialCreateSocialClientData, SocialCreateSocialClientErrors, SocialCreateSocialClientResponses, SocialDeleteSocialClientData, SocialDeleteSocialClientErrors, SocialDeleteSocialClientResponses, SocialReadSocialClientData, SocialReadSocialClientErrors, SocialReadSocialClientResponses, SocialReadSocialClientsData, SocialReadSocialClientsErrors, SocialReadSocialClientsResponses, SocialReadSocialUserData, SocialReadSocialUserErrors, SocialReadSocialUserResponses, SocialReadSocialUsersData, SocialReadSocialUsersErrors, SocialReadSocialUsersResponses, SocialUnbindSocialUserData, SocialUnbindSocialUserErrors, SocialUnbindSocialUserResponses, SocialUpdateSocialClientData, SocialUpdateSocialClientErrors, SocialUpdateSocialClientResponses, TenantsArchiveTenantData, TenantsArchiveTenantErrors, TenantsArchiveTenantResponses, TenantsCreateTenantData, TenantsCreateTenantErrors, TenantsCreateTenantPlanData, TenantsCreateTenantPlanErrors, TenantsCreateTenantPlanResponses, TenantsCreateTenantResponses, TenantsCreateTenantTemplateData, TenantsCreateTenantTemplateErrors, TenantsCreateTenantTemplateResponses, TenantsDeleteTenantPlanData, TenantsDeleteTenantPlanErrors, TenantsDeleteTenantPlanResponses, TenantsDeleteTenantTemplateData, TenantsDeleteTenantTemplateErrors, TenantsDeleteTenantTemplateResponses, TenantsReadMyTenantsData, TenantsReadMyTenantsResponses, TenantsReadSimpleTenantPlansData, TenantsReadSimpleTenantPlansResponses, TenantsReadSimpleTenantTemplatesData, TenantsReadSimpleTenantTemplatesResponses, TenantsReadTenantData, TenantsReadTenantErrors, TenantsReadTenantPlansData, TenantsReadTenantPlansErrors, TenantsReadTenantPlansResponses, TenantsReadTenantResponses, TenantsReadTenantsData, TenantsReadTenantsErrors, TenantsReadTenantsResponses, TenantsReadTenantTemplatesData, TenantsReadTenantTemplatesErrors, TenantsReadTenantTemplatesResponses, TenantsReadTenantUsageData, TenantsReadTenantUsageErrors, TenantsReadTenantUsageResponses, TenantsSwitchTenantData, TenantsSwitchTenantErrors, TenantsSwitchTenantResponses, TenantsUpdateTenantData, TenantsUpdateTenantErrors, TenantsUpdateTenantPlanData, TenantsUpdateTenantPlanErrors, TenantsUpdateTenantPlanResponses, TenantsUpdateTenantResponses, TenantsUpdateTenantTemplateData, TenantsUpdateTenantTemplateErrors, TenantsUpdateTenantTemplateResponses, UsersCreateUserData, UsersCreateUserErrors, UsersCreateUserResponses, UsersDeleteUserData, UsersDeleteUserErrors, UsersDeleteUserResponses, UsersDisableUserMfaData, UsersDisableUserMfaErrors, UsersDisableUserMfaResponses, UsersDownloadUserImportTemplateData, UsersDownloadUserImportTemplateResponses, UsersEnableUserMfaData, UsersEnableUserMfaErrors, UsersEnableUserMfaResponses, UsersExportUsersData, UsersExportUsersResponses, UsersImportUsersData, UsersImportUsersErrors, UsersImportUsersResponses, UsersReadUserByIdData, UsersReadUserByIdErrors, UsersReadUserByIdResponses, UsersReadUserMeData, UsersReadUserMeResponses, UsersReadUserMfaStatusData, UsersReadUserMfaStatusResponses, UsersReadUserPostsData, UsersReadUserPostsErrors, UsersReadUserPostsResponses, UsersReadUserRolesData, UsersReadUserRolesErrors, UsersReadUserRolesResponses, UsersReadUsersData, UsersReadUsersErrors, UsersReadUsersResponses, UsersResetUserMfaData, UsersResetUserMfaErrors, UsersResetUserMfaResponses, UsersSetupUserMfaData, UsersSetupUserMfaResponses, UsersUpdatePasswordMeData, UsersUpdatePasswordMeErrors, UsersUpdatePasswordMeResponses, UsersUpdateUserData, UsersUpdateUserErrors, UsersUpdateUserMeData, UsersUpdateUserMeErrors, UsersUpdateUserMeResponses, UsersUpdateUserPostsData, UsersUpdateUserPostsErrors, UsersUpdateUserPostsResponses, UsersUpdateUserResponses, UsersUpdateUserRolesData, UsersUpdateUserRolesErrors, UsersUpdateUserRolesResponses, UtilsHealthCheckData, UtilsHealthCheckResponses, UtilsHealthStatusData, UtilsHealthStatusResponses, UtilsTestEmailData, UtilsTestEmailErrors, UtilsTestEmailResponses, WorkflowsActOnTaskData, WorkflowsActOnTaskErrors, WorkflowsActOnTaskResponses, WorkflowsCreateDefinitionData, WorkflowsCreateDefinitionErrors, WorkflowsCreateDefinitionResponses, WorkflowsCreateVersionData, WorkflowsCreateVersionErrors, WorkflowsCreateVersionResponses, WorkflowsListDefinitionsData, WorkflowsListDefinitionsResponses, WorkflowsListInstancesData, WorkflowsListInstancesResponses, WorkflowsListTasksData, WorkflowsListTasksErrors, WorkflowsListTasksResponses, WorkflowsPublishVersionData, WorkflowsPublishVersionErrors, WorkflowsPublishVersionResponses, WorkflowsReadInstanceData, WorkflowsReadInstanceErrors, WorkflowsReadInstanceResponses, WorkflowsStartInstanceData, WorkflowsStartInstanceErrors, WorkflowsStartInstanceResponses, WorkflowsWithdrawInstanceData, WorkflowsWithdrawInstanceErrors, WorkflowsWithdrawInstanceResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -17,6 +17,47 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      */
     meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+/**
+ * Send Login Sms Code
+ */
+export const loginSendLoginSmsCode = <ThrowOnError extends boolean = false>(options: Options<LoginSendLoginSmsCodeData, ThrowOnError>): RequestResult<LoginSendLoginSmsCodeResponses, LoginSendLoginSmsCodeErrors, ThrowOnError> => (options.client ?? client).post<LoginSendLoginSmsCodeResponses, LoginSendLoginSmsCodeErrors, ThrowOnError>({
+    url: '/api/v1/login/sms-code',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Login With Sms Code
+ */
+export const loginLoginWithSmsCode = <ThrowOnError extends boolean = false>(options: Options<LoginLoginWithSmsCodeData, ThrowOnError>): RequestResult<LoginLoginWithSmsCodeResponses, LoginLoginWithSmsCodeErrors, ThrowOnError> => (options.client ?? client).post<LoginLoginWithSmsCodeResponses, LoginLoginWithSmsCodeErrors, ThrowOnError>({
+    url: '/api/v1/login/sms',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Read Registration Status
+ */
+export const loginReadRegistrationStatus = <ThrowOnError extends boolean = false>(options?: Options<LoginReadRegistrationStatusData, ThrowOnError>): RequestResult<LoginReadRegistrationStatusResponses, unknown, ThrowOnError> => (options?.client ?? client).get<LoginReadRegistrationStatusResponses, unknown, ThrowOnError>({ url: '/api/v1/login/registration/status', ...options });
+
+/**
+ * Register Tenant
+ */
+export const loginRegisterTenant = <ThrowOnError extends boolean = false>(options: Options<LoginRegisterTenantData, ThrowOnError>): RequestResult<LoginRegisterTenantResponses, LoginRegisterTenantErrors, ThrowOnError> => (options.client ?? client).post<LoginRegisterTenantResponses, LoginRegisterTenantErrors, ThrowOnError>({
+    url: '/api/v1/login/register-tenant',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get Login Captcha
@@ -904,7 +945,11 @@ export const dictionariesCreateDictionaryItem = <ThrowOnError extends boolean = 
 /**
  * Read Dictionary Items By Code
  */
-export const dictionariesReadDictionaryItemsByCode = <ThrowOnError extends boolean = false>(options: Options<DictionariesReadDictionaryItemsByCodeData, ThrowOnError>): RequestResult<DictionariesReadDictionaryItemsByCodeResponses, DictionariesReadDictionaryItemsByCodeErrors, ThrowOnError> => (options.client ?? client).get<DictionariesReadDictionaryItemsByCodeResponses, DictionariesReadDictionaryItemsByCodeErrors, ThrowOnError>({ url: '/api/v1/dictionaries/{code}/items', ...options });
+export const dictionariesReadDictionaryItemsByCode = <ThrowOnError extends boolean = false>(options: Options<DictionariesReadDictionaryItemsByCodeData, ThrowOnError>): RequestResult<DictionariesReadDictionaryItemsByCodeResponses, DictionariesReadDictionaryItemsByCodeErrors, ThrowOnError> => (options.client ?? client).get<DictionariesReadDictionaryItemsByCodeResponses, DictionariesReadDictionaryItemsByCodeErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/dictionaries/{code}/items',
+    ...options
+});
 
 /**
  * Delete Dictionary Item
@@ -940,7 +985,11 @@ export const settingsReadSettings = <ThrowOnError extends boolean = false>(optio
 /**
  * Read Public Settings
  */
-export const settingsReadPublicSettings = <ThrowOnError extends boolean = false>(options?: Options<SettingsReadPublicSettingsData, ThrowOnError>): RequestResult<SettingsReadPublicSettingsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<SettingsReadPublicSettingsResponses, unknown, ThrowOnError>({ url: '/api/v1/settings/public', ...options });
+export const settingsReadPublicSettings = <ThrowOnError extends boolean = false>(options?: Options<SettingsReadPublicSettingsData, ThrowOnError>): RequestResult<SettingsReadPublicSettingsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<SettingsReadPublicSettingsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/settings/public',
+    ...options
+});
 
 /**
  * Update Setting
@@ -1643,6 +1692,302 @@ export const socialUnbindSocialUser = <ThrowOnError extends boolean = false>(opt
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/v1/social/users/{social_user_id}/unbind',
     ...options
+});
+
+/**
+ * Read My Tenants
+ */
+export const tenantsReadMyTenants = <ThrowOnError extends boolean = false>(options?: Options<TenantsReadMyTenantsData, ThrowOnError>): RequestResult<TenantsReadMyTenantsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<TenantsReadMyTenantsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/tenants/me',
+    ...options
+});
+
+/**
+ * Switch Tenant
+ */
+export const tenantsSwitchTenant = <ThrowOnError extends boolean = false>(options: Options<TenantsSwitchTenantData, ThrowOnError>): RequestResult<TenantsSwitchTenantResponses, TenantsSwitchTenantErrors, ThrowOnError> => (options.client ?? client).post<TenantsSwitchTenantResponses, TenantsSwitchTenantErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/tenants/switch',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Read Tenants
+ */
+export const tenantsReadTenants = <ThrowOnError extends boolean = false>(options?: Options<TenantsReadTenantsData, ThrowOnError>): RequestResult<TenantsReadTenantsResponses, TenantsReadTenantsErrors, ThrowOnError> => (options?.client ?? client).get<TenantsReadTenantsResponses, TenantsReadTenantsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/tenants',
+    ...options
+});
+
+/**
+ * Create Tenant
+ */
+export const tenantsCreateTenant = <ThrowOnError extends boolean = false>(options: Options<TenantsCreateTenantData, ThrowOnError>): RequestResult<TenantsCreateTenantResponses, TenantsCreateTenantErrors, ThrowOnError> => (options.client ?? client).post<TenantsCreateTenantResponses, TenantsCreateTenantErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/tenants',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Read Tenant Plans
+ */
+export const tenantsReadTenantPlans = <ThrowOnError extends boolean = false>(options?: Options<TenantsReadTenantPlansData, ThrowOnError>): RequestResult<TenantsReadTenantPlansResponses, TenantsReadTenantPlansErrors, ThrowOnError> => (options?.client ?? client).get<TenantsReadTenantPlansResponses, TenantsReadTenantPlansErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/tenants/plans',
+    ...options
+});
+
+/**
+ * Create Tenant Plan
+ */
+export const tenantsCreateTenantPlan = <ThrowOnError extends boolean = false>(options: Options<TenantsCreateTenantPlanData, ThrowOnError>): RequestResult<TenantsCreateTenantPlanResponses, TenantsCreateTenantPlanErrors, ThrowOnError> => (options.client ?? client).post<TenantsCreateTenantPlanResponses, TenantsCreateTenantPlanErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/tenants/plans',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Read Simple Tenant Plans
+ */
+export const tenantsReadSimpleTenantPlans = <ThrowOnError extends boolean = false>(options?: Options<TenantsReadSimpleTenantPlansData, ThrowOnError>): RequestResult<TenantsReadSimpleTenantPlansResponses, unknown, ThrowOnError> => (options?.client ?? client).get<TenantsReadSimpleTenantPlansResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/tenants/plans/simple',
+    ...options
+});
+
+/**
+ * Delete Tenant Plan
+ */
+export const tenantsDeleteTenantPlan = <ThrowOnError extends boolean = false>(options: Options<TenantsDeleteTenantPlanData, ThrowOnError>): RequestResult<TenantsDeleteTenantPlanResponses, TenantsDeleteTenantPlanErrors, ThrowOnError> => (options.client ?? client).delete<TenantsDeleteTenantPlanResponses, TenantsDeleteTenantPlanErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/tenants/plans/{plan_id}',
+    ...options
+});
+
+/**
+ * Update Tenant Plan
+ */
+export const tenantsUpdateTenantPlan = <ThrowOnError extends boolean = false>(options: Options<TenantsUpdateTenantPlanData, ThrowOnError>): RequestResult<TenantsUpdateTenantPlanResponses, TenantsUpdateTenantPlanErrors, ThrowOnError> => (options.client ?? client).patch<TenantsUpdateTenantPlanResponses, TenantsUpdateTenantPlanErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/tenants/plans/{plan_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Read Tenant Templates
+ */
+export const tenantsReadTenantTemplates = <ThrowOnError extends boolean = false>(options?: Options<TenantsReadTenantTemplatesData, ThrowOnError>): RequestResult<TenantsReadTenantTemplatesResponses, TenantsReadTenantTemplatesErrors, ThrowOnError> => (options?.client ?? client).get<TenantsReadTenantTemplatesResponses, TenantsReadTenantTemplatesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/tenants/templates',
+    ...options
+});
+
+/**
+ * Create Tenant Template
+ */
+export const tenantsCreateTenantTemplate = <ThrowOnError extends boolean = false>(options: Options<TenantsCreateTenantTemplateData, ThrowOnError>): RequestResult<TenantsCreateTenantTemplateResponses, TenantsCreateTenantTemplateErrors, ThrowOnError> => (options.client ?? client).post<TenantsCreateTenantTemplateResponses, TenantsCreateTenantTemplateErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/tenants/templates',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Read Simple Tenant Templates
+ */
+export const tenantsReadSimpleTenantTemplates = <ThrowOnError extends boolean = false>(options?: Options<TenantsReadSimpleTenantTemplatesData, ThrowOnError>): RequestResult<TenantsReadSimpleTenantTemplatesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<TenantsReadSimpleTenantTemplatesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/tenants/templates/simple',
+    ...options
+});
+
+/**
+ * Delete Tenant Template
+ */
+export const tenantsDeleteTenantTemplate = <ThrowOnError extends boolean = false>(options: Options<TenantsDeleteTenantTemplateData, ThrowOnError>): RequestResult<TenantsDeleteTenantTemplateResponses, TenantsDeleteTenantTemplateErrors, ThrowOnError> => (options.client ?? client).delete<TenantsDeleteTenantTemplateResponses, TenantsDeleteTenantTemplateErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/tenants/templates/{template_id}',
+    ...options
+});
+
+/**
+ * Update Tenant Template
+ */
+export const tenantsUpdateTenantTemplate = <ThrowOnError extends boolean = false>(options: Options<TenantsUpdateTenantTemplateData, ThrowOnError>): RequestResult<TenantsUpdateTenantTemplateResponses, TenantsUpdateTenantTemplateErrors, ThrowOnError> => (options.client ?? client).patch<TenantsUpdateTenantTemplateResponses, TenantsUpdateTenantTemplateErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/tenants/templates/{template_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Read Tenant Usage
+ */
+export const tenantsReadTenantUsage = <ThrowOnError extends boolean = false>(options: Options<TenantsReadTenantUsageData, ThrowOnError>): RequestResult<TenantsReadTenantUsageResponses, TenantsReadTenantUsageErrors, ThrowOnError> => (options.client ?? client).get<TenantsReadTenantUsageResponses, TenantsReadTenantUsageErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/tenants/{tenant_id}/usage',
+    ...options
+});
+
+/**
+ * Archive Tenant
+ */
+export const tenantsArchiveTenant = <ThrowOnError extends boolean = false>(options: Options<TenantsArchiveTenantData, ThrowOnError>): RequestResult<TenantsArchiveTenantResponses, TenantsArchiveTenantErrors, ThrowOnError> => (options.client ?? client).delete<TenantsArchiveTenantResponses, TenantsArchiveTenantErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/tenants/{tenant_id}',
+    ...options
+});
+
+/**
+ * Read Tenant
+ */
+export const tenantsReadTenant = <ThrowOnError extends boolean = false>(options: Options<TenantsReadTenantData, ThrowOnError>): RequestResult<TenantsReadTenantResponses, TenantsReadTenantErrors, ThrowOnError> => (options.client ?? client).get<TenantsReadTenantResponses, TenantsReadTenantErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/tenants/{tenant_id}',
+    ...options
+});
+
+/**
+ * Update Tenant
+ */
+export const tenantsUpdateTenant = <ThrowOnError extends boolean = false>(options: Options<TenantsUpdateTenantData, ThrowOnError>): RequestResult<TenantsUpdateTenantResponses, TenantsUpdateTenantErrors, ThrowOnError> => (options.client ?? client).patch<TenantsUpdateTenantResponses, TenantsUpdateTenantErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/tenants/{tenant_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Definitions
+ */
+export const workflowsListDefinitions = <ThrowOnError extends boolean = false>(options?: Options<WorkflowsListDefinitionsData, ThrowOnError>): RequestResult<WorkflowsListDefinitionsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<WorkflowsListDefinitionsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/workflows/definitions',
+    ...options
+});
+
+/**
+ * Create Definition
+ */
+export const workflowsCreateDefinition = <ThrowOnError extends boolean = false>(options: Options<WorkflowsCreateDefinitionData, ThrowOnError>): RequestResult<WorkflowsCreateDefinitionResponses, WorkflowsCreateDefinitionErrors, ThrowOnError> => (options.client ?? client).post<WorkflowsCreateDefinitionResponses, WorkflowsCreateDefinitionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/workflows/definitions',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Create Version
+ */
+export const workflowsCreateVersion = <ThrowOnError extends boolean = false>(options: Options<WorkflowsCreateVersionData, ThrowOnError>): RequestResult<WorkflowsCreateVersionResponses, WorkflowsCreateVersionErrors, ThrowOnError> => (options.client ?? client).post<WorkflowsCreateVersionResponses, WorkflowsCreateVersionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/workflows/definitions/{definition_id}/versions',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Publish Version
+ */
+export const workflowsPublishVersion = <ThrowOnError extends boolean = false>(options: Options<WorkflowsPublishVersionData, ThrowOnError>): RequestResult<WorkflowsPublishVersionResponses, WorkflowsPublishVersionErrors, ThrowOnError> => (options.client ?? client).post<WorkflowsPublishVersionResponses, WorkflowsPublishVersionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/workflows/versions/{version_id}/publish',
+    ...options
+});
+
+/**
+ * List Instances
+ */
+export const workflowsListInstances = <ThrowOnError extends boolean = false>(options?: Options<WorkflowsListInstancesData, ThrowOnError>): RequestResult<WorkflowsListInstancesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<WorkflowsListInstancesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/workflows/instances',
+    ...options
+});
+
+/**
+ * Start Instance
+ */
+export const workflowsStartInstance = <ThrowOnError extends boolean = false>(options: Options<WorkflowsStartInstanceData, ThrowOnError>): RequestResult<WorkflowsStartInstanceResponses, WorkflowsStartInstanceErrors, ThrowOnError> => (options.client ?? client).post<WorkflowsStartInstanceResponses, WorkflowsStartInstanceErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/workflows/instances',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Read Instance
+ */
+export const workflowsReadInstance = <ThrowOnError extends boolean = false>(options: Options<WorkflowsReadInstanceData, ThrowOnError>): RequestResult<WorkflowsReadInstanceResponses, WorkflowsReadInstanceErrors, ThrowOnError> => (options.client ?? client).get<WorkflowsReadInstanceResponses, WorkflowsReadInstanceErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/workflows/instances/{instance_id}',
+    ...options
+});
+
+/**
+ * Withdraw Instance
+ */
+export const workflowsWithdrawInstance = <ThrowOnError extends boolean = false>(options: Options<WorkflowsWithdrawInstanceData, ThrowOnError>): RequestResult<WorkflowsWithdrawInstanceResponses, WorkflowsWithdrawInstanceErrors, ThrowOnError> => (options.client ?? client).post<WorkflowsWithdrawInstanceResponses, WorkflowsWithdrawInstanceErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/workflows/instances/{instance_id}/withdraw',
+    ...options
+});
+
+/**
+ * List Tasks
+ */
+export const workflowsListTasks = <ThrowOnError extends boolean = false>(options?: Options<WorkflowsListTasksData, ThrowOnError>): RequestResult<WorkflowsListTasksResponses, WorkflowsListTasksErrors, ThrowOnError> => (options?.client ?? client).get<WorkflowsListTasksResponses, WorkflowsListTasksErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/workflows/tasks',
+    ...options
+});
+
+/**
+ * Act On Task
+ */
+export const workflowsActOnTask = <ThrowOnError extends boolean = false>(options: Options<WorkflowsActOnTaskData, ThrowOnError>): RequestResult<WorkflowsActOnTaskResponses, WorkflowsActOnTaskErrors, ThrowOnError> => (options.client ?? client).post<WorkflowsActOnTaskResponses, WorkflowsActOnTaskErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/workflows/tasks/{task_id}/actions',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**

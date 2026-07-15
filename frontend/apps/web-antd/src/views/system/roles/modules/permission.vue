@@ -7,11 +7,7 @@ import { useVbenDrawer } from '@vben/common-ui';
 
 import { Tree as ATree } from 'ant-design-vue';
 
-import {
-  getRoleMenusApi,
-  listMenusApi,
-  updateRoleMenusApi,
-} from '#/api';
+import { getRoleMenusApi, listMenusApi, updateRoleMenusApi } from '#/api';
 
 interface MenuTreeNode {
   children: MenuTreeNode[];
@@ -37,7 +33,7 @@ const menuTreeData = computed(() => {
 
   function build(parentId: null | string): MenuTreeNode[] {
     return (childrenMap.get(parentId) ?? [])
-      .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
+      .toSorted((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
       .map((menu) => ({
         children: build(menu.id),
         key: menu.id,
@@ -85,7 +81,8 @@ const [Drawer, drawerApi] = useVbenDrawer({
 });
 
 const drawerTitle = computed(
-  () => `分配权限${permissionRole.value ? ` - ${permissionRole.value.name}` : ''}`,
+  () =>
+    `分配权限${permissionRole.value ? ` - ${permissionRole.value.name}` : ''}`,
 );
 </script>
 

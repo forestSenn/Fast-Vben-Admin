@@ -64,8 +64,7 @@ def test_manage_site_message_template_and_send(
     )
     assert admin_list_response.status_code == 200
     assert any(
-        item["id"] == site_message["id"]
-        for item in admin_list_response.json()["items"]
+        item["id"] == site_message["id"] for item in admin_list_response.json()["items"]
     )
 
     my_messages_response = client.get(

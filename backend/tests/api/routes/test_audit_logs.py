@@ -37,12 +37,8 @@ def test_login_success_and_failure_are_logged(
         f"{settings.API_V1_STR}/logs/login",
         headers=superuser_token_headers,
         params={
-            "created_from": (
-                datetime.now(UTC) - timedelta(minutes=5)
-            ).isoformat(),
-            "created_to": (
-                datetime.now(UTC) + timedelta(minutes=5)
-            ).isoformat(),
+            "created_from": (datetime.now(UTC) - timedelta(minutes=5)).isoformat(),
+            "created_to": (datetime.now(UTC) + timedelta(minutes=5)).isoformat(),
             "keyword": settings.FIRST_SUPERUSER,
         },
     )
@@ -88,12 +84,8 @@ def test_operation_log_is_written_for_mutating_request(
             f"{settings.API_V1_STR}/logs/operation",
             headers=superuser_token_headers,
             params={
-                "created_from": (
-                    datetime.now(UTC) - timedelta(minutes=5)
-                ).isoformat(),
-                "created_to": (
-                    datetime.now(UTC) + timedelta(minutes=5)
-                ).isoformat(),
+                "created_from": (datetime.now(UTC) - timedelta(minutes=5)).isoformat(),
+                "created_to": (datetime.now(UTC) + timedelta(minutes=5)).isoformat(),
                 "keyword": "/api/v1/roles",
             },
         )

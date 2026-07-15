@@ -164,10 +164,14 @@ def role_codes_from_claims(claims: dict[str, Any]) -> set[str]:
     raw_groups = claims.get(settings.ENTERPRISE_OIDC_ROLE_CLAIM, [])
     if isinstance(raw_groups, str):
         groups = {raw_groups}
-    elif isinstance(raw_groups, list) and all(isinstance(group, str) for group in raw_groups):
+    elif isinstance(raw_groups, list) and all(
+        isinstance(group, str) for group in raw_groups
+    ):
         groups = set(raw_groups)
     else:
-        raise HTTPException(status_code=401, detail="Enterprise OIDC identity token is invalid")
+        raise HTTPException(
+            status_code=401, detail="Enterprise OIDC identity token is invalid"
+        )
     role_codes: set[str] = set()
     for group in groups:
         mapped = mapping.get(str(group))

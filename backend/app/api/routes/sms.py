@@ -6,7 +6,12 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlmodel import col, func, or_, select
 
-from app.api.deps import SessionDep, normalize_pagination, require_permission
+from app.api.deps import (
+    CurrentTenant,
+    SessionDep,
+    normalize_pagination,
+    require_permission,
+)
 from app.models import (
     SmsChannel,
     SmsChannelCreate,
@@ -45,9 +50,16 @@ def ensure_supported_provider(provider: str) -> None:
 
 
 def ensure_channel_code_unique(
-    *, session: SessionDep, code: str, exclude_id: uuid.UUID | None = None
+    *,
+    session: SessionDep,
+    tenant_id: uuid.UUID,
+    code: str,
+    exclude_id: uuid.UUID | None = None,
 ) -> None:
-    statement = select(SmsChannel).where(SmsChannel.code == code)
+    statement = select(SmsChannel).where(
+        SmsChannel.tenant_id == tenant_id,
+        SmsChannel.code == code,
+    )
     if exclude_id:
         statement = statement.where(SmsChannel.id != exclude_id)
     if session.exec(statement).first():
@@ -55,9 +67,16 @@ def ensure_channel_code_unique(
 
 
 def ensure_template_code_unique(
-    *, session: SessionDep, code: str, exclude_id: uuid.UUID | None = None
+    *,
+    session: SessionDep,
+    tenant_id: uuid.UUID,
+    code: str,
+    exclude_id: uuid.UUID | None = None,
 ) -> None:
-    statement = select(SmsTemplate).where(SmsTemplate.code == code)
+    statement = select(SmsTemplate).where(
+        SmsTemplate.tenant_id == tenant_id,
+        SmsTemplate.code == code,
+    )
     if exclude_id:
         statement = statement.where(SmsTemplate.id != exclude_id)
     if session.exec(statement).first():
@@ -65,9 +84,15 @@ def ensure_template_code_unique(
 
 
 def clear_default_channels(
-    *, session: SessionDep, exclude_id: uuid.UUID | None = None
+    *,
+    session: SessionDep,
+    tenant_id: uuid.UUID,
+    exclude_id: uuid.UUID | None = None,
 ) -> None:
-    statement = select(SmsChannel).where(SmsChannel.is_default)
+    statement = select(SmsChannel).where(
+        SmsChannel.tenant_id == tenant_id,
+        SmsChannel.is_default,
+    )
     if exclude_id:
         statement = statement.where(SmsChannel.id != exclude_id)
     for channel in session.exec(statement).all():
@@ -80,12 +105,23 @@ def get_template_params(content: str) -> str:
     return ",".join(dict.fromkeys(TEMPLATE_PARAM_PATTERN.findall(content)))
 
 
-def get_template_channel(*, session: SessionDep, template: SmsTemplate) -> SmsChannel | None:
+def get_template_channel(
+    *, session: SessionDep, template: SmsTemplate
+) -> SmsChannel | None:
     if template.channel_id:
-        return session.get(SmsChannel, template.channel_id)
+        return session.exec(
+            select(SmsChannel).where(
+                SmsChannel.id == template.channel_id,
+                SmsChannel.tenant_id == template.tenant_id,
+            )
+        ).first()
     return session.exec(
         select(SmsChannel)
-        .where(SmsChannel.is_default, SmsChannel.is_active)
+        .where(
+            SmsChannel.tenant_id == template.tenant_id,
+            SmsChannel.is_default,
+            SmsChannel.is_active,
+        )
         .order_by(col(SmsChannel.created_at))
     ).first()
 
@@ -103,6 +139,7 @@ def create_sms_log(
     message: str,
 ) -> SmsLog:
     sms_log = SmsLog(
+        tenant_id=template.tenant_id,
         channel_id=channel.id if channel else None,
         channel_code=channel.code if channel else template.channel_code,
         template_id=template.id,
@@ -132,6 +169,7 @@ def create_sms_log(
 )
 def read_sms_channels(
     session: SessionDep,
+    tenant_context: CurrentTenant,
     page: int = 1,
     page_size: int = 20,
     keyword: str | None = None,
@@ -139,7 +177,7 @@ def read_sms_channels(
     is_active: bool | None = None,
 ) -> Any:
     page, page_size = normalize_pagination(page=page, page_size=page_size)
-    filters = []
+    filters = [SmsChannel.tenant_id == tenant_context.tenant_id]
     if keyword:
         pattern = f"%{keyword}%"
         filters.append(
@@ -183,10 +221,16 @@ def read_sms_channels(
     dependencies=[Depends(require_permission("system:sms-template:list"))],
     response_model=list[SmsChannelPublic],
 )
-def read_simple_sms_channels(session: SessionDep) -> Any:
+def read_simple_sms_channels(
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+) -> Any:
     channels = session.exec(
         select(SmsChannel)
-        .where(SmsChannel.is_active)
+        .where(
+            SmsChannel.tenant_id == tenant_context.tenant_id,
+            SmsChannel.is_active,
+        )
         .order_by(col(SmsChannel.is_default).desc(), col(SmsChannel.name))
     ).all()
     return [mask_channel(channel) for channel in channels]
@@ -198,13 +242,26 @@ def read_simple_sms_channels(session: SessionDep) -> Any:
     response_model=SmsChannelPublic,
 )
 def create_sms_channel(
-    *, session: SessionDep, channel_in: SmsChannelCreate
+    *,
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    channel_in: SmsChannelCreate,
 ) -> SmsChannelPublic:
     ensure_supported_provider(channel_in.provider)
-    ensure_channel_code_unique(session=session, code=channel_in.code)
-    channel = SmsChannel.model_validate(channel_in)
+    ensure_channel_code_unique(
+        session=session,
+        tenant_id=tenant_context.tenant_id,
+        code=channel_in.code,
+    )
+    channel = SmsChannel.model_validate(
+        channel_in,
+        update={"tenant_id": tenant_context.tenant_id},
+    )
     if channel.is_default:
-        clear_default_channels(session=session)
+        clear_default_channels(
+            session=session,
+            tenant_id=tenant_context.tenant_id,
+        )
     session.add(channel)
     session.commit()
     session.refresh(channel)
@@ -219,10 +276,16 @@ def create_sms_channel(
 def update_sms_channel(
     *,
     session: SessionDep,
+    tenant_context: CurrentTenant,
     channel_id: uuid.UUID,
     channel_in: SmsChannelUpdate,
 ) -> SmsChannelPublic:
-    channel = session.get(SmsChannel, channel_id)
+    channel = session.exec(
+        select(SmsChannel).where(
+            SmsChannel.id == channel_id,
+            SmsChannel.tenant_id == tenant_context.tenant_id,
+        )
+    ).first()
     if not channel:
         raise HTTPException(status_code=404, detail="SMS channel not found")
 
@@ -230,9 +293,18 @@ def update_sms_channel(
     if "provider" in update_data and update_data["provider"] is not None:
         ensure_supported_provider(update_data["provider"])
     if "code" in update_data and update_data["code"] != channel.code:
-        ensure_channel_code_unique(session=session, code=update_data["code"], exclude_id=channel.id)
+        ensure_channel_code_unique(
+            session=session,
+            tenant_id=tenant_context.tenant_id,
+            code=update_data["code"],
+            exclude_id=channel.id,
+        )
     if update_data.get("is_default"):
-        clear_default_channels(session=session, exclude_id=channel.id)
+        clear_default_channels(
+            session=session,
+            tenant_id=tenant_context.tenant_id,
+            exclude_id=channel.id,
+        )
 
     channel.sqlmodel_update(update_data)
     channel.updated_at = get_datetime_utc()
@@ -247,16 +319,36 @@ def update_sms_channel(
     dependencies=[Depends(require_permission("system:sms-channel:delete"))],
     status_code=204,
 )
-def delete_sms_channel(session: SessionDep, channel_id: uuid.UUID) -> None:
-    channel = session.get(SmsChannel, channel_id)
+def delete_sms_channel(
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    channel_id: uuid.UUID,
+) -> None:
+    channel = session.exec(
+        select(SmsChannel).where(
+            SmsChannel.id == channel_id,
+            SmsChannel.tenant_id == tenant_context.tenant_id,
+        )
+    ).first()
     if not channel:
         raise HTTPException(status_code=404, detail="SMS channel not found")
     if channel.is_default:
         raise HTTPException(status_code=400, detail="Cannot delete default SMS channel")
     if session.exec(
-        select(SmsTemplate).where(SmsTemplate.channel_id == channel_id)
+        select(SmsTemplate).where(
+            SmsTemplate.tenant_id == tenant_context.tenant_id,
+            SmsTemplate.channel_id == channel_id,
+        )
     ).first():
         raise HTTPException(status_code=400, detail="SMS channel is used by templates")
+    for sms_log in session.exec(
+        select(SmsLog).where(
+            SmsLog.tenant_id == tenant_context.tenant_id,
+            SmsLog.channel_id == channel_id,
+        )
+    ).all():
+        sms_log.channel_id = None
+        session.add(sms_log)
     session.delete(channel)
     session.commit()
     return None
@@ -269,6 +361,7 @@ def delete_sms_channel(session: SessionDep, channel_id: uuid.UUID) -> None:
 )
 def read_sms_templates(
     session: SessionDep,
+    tenant_context: CurrentTenant,
     page: int = 1,
     page_size: int = 20,
     keyword: str | None = None,
@@ -277,7 +370,7 @@ def read_sms_templates(
     type: str | None = None,
 ) -> Any:
     page, page_size = normalize_pagination(page=page, page_size=page_size)
-    filters = []
+    filters = [SmsTemplate.tenant_id == tenant_context.tenant_id]
     if keyword:
         pattern = f"%{keyword}%"
         filters.append(
@@ -321,15 +414,30 @@ def read_sms_templates(
     response_model=SmsTemplatePublic,
 )
 def create_sms_template(
-    *, session: SessionDep, template_in: SmsTemplateCreate
+    *,
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    template_in: SmsTemplateCreate,
 ) -> SmsTemplatePublic:
-    ensure_template_code_unique(session=session, code=template_in.code)
+    ensure_template_code_unique(
+        session=session,
+        tenant_id=tenant_context.tenant_id,
+        code=template_in.code,
+    )
     template = SmsTemplate.model_validate(
         template_in,
-        update={"params": get_template_params(template_in.content)},
+        update={
+            "params": get_template_params(template_in.content),
+            "tenant_id": tenant_context.tenant_id,
+        },
     )
     if template.channel_id:
-        channel = session.get(SmsChannel, template.channel_id)
+        channel = session.exec(
+            select(SmsChannel).where(
+                SmsChannel.id == template.channel_id,
+                SmsChannel.tenant_id == tenant_context.tenant_id,
+            )
+        ).first()
         if not channel:
             raise HTTPException(status_code=400, detail="SMS channel not found")
         template.channel_code = channel.code
@@ -347,10 +455,16 @@ def create_sms_template(
 def update_sms_template(
     *,
     session: SessionDep,
+    tenant_context: CurrentTenant,
     template_id: uuid.UUID,
     template_in: SmsTemplateUpdate,
 ) -> SmsTemplatePublic:
-    template = session.get(SmsTemplate, template_id)
+    template = session.exec(
+        select(SmsTemplate).where(
+            SmsTemplate.id == template_id,
+            SmsTemplate.tenant_id == tenant_context.tenant_id,
+        )
+    ).first()
     if not template:
         raise HTTPException(status_code=404, detail="SMS template not found")
 
@@ -358,13 +472,19 @@ def update_sms_template(
     if "code" in update_data and update_data["code"] != template.code:
         ensure_template_code_unique(
             session=session,
+            tenant_id=tenant_context.tenant_id,
             code=update_data["code"],
             exclude_id=template.id,
         )
     if "channel_id" in update_data:
         channel_id = update_data["channel_id"]
         if channel_id:
-            channel = session.get(SmsChannel, channel_id)
+            channel = session.exec(
+                select(SmsChannel).where(
+                    SmsChannel.id == channel_id,
+                    SmsChannel.tenant_id == tenant_context.tenant_id,
+                )
+            ).first()
             if not channel:
                 raise HTTPException(status_code=400, detail="SMS channel not found")
             update_data["channel_code"] = channel.code
@@ -386,10 +506,27 @@ def update_sms_template(
     dependencies=[Depends(require_permission("system:sms-template:delete"))],
     status_code=204,
 )
-def delete_sms_template(session: SessionDep, template_id: uuid.UUID) -> Response:
-    template = session.get(SmsTemplate, template_id)
+def delete_sms_template(
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    template_id: uuid.UUID,
+) -> Response:
+    template = session.exec(
+        select(SmsTemplate).where(
+            SmsTemplate.id == template_id,
+            SmsTemplate.tenant_id == tenant_context.tenant_id,
+        )
+    ).first()
     if not template:
         raise HTTPException(status_code=404, detail="SMS template not found")
+    for sms_log in session.exec(
+        select(SmsLog).where(
+            SmsLog.tenant_id == tenant_context.tenant_id,
+            SmsLog.template_id == template_id,
+        )
+    ).all():
+        sms_log.template_id = None
+        session.add(sms_log)
     session.delete(template)
     session.commit()
     return Response(status_code=204)
@@ -403,10 +540,16 @@ def delete_sms_template(session: SessionDep, template_id: uuid.UUID) -> Response
 def send_test_sms(
     *,
     session: SessionDep,
+    tenant_context: CurrentTenant,
     template_id: uuid.UUID,
     send_in: SmsSendRequest,
 ) -> SmsLogPublic:
-    template = session.get(SmsTemplate, template_id)
+    template = session.exec(
+        select(SmsTemplate).where(
+            SmsTemplate.id == template_id,
+            SmsTemplate.tenant_id == tenant_context.tenant_id,
+        )
+    ).first()
     if not template:
         raise HTTPException(status_code=404, detail="SMS template not found")
     if not template.is_active:
@@ -414,7 +557,9 @@ def send_test_sms(
 
     required_params = TEMPLATE_PARAM_PATTERN.findall(template.content)
     missing_params = [
-        param for param in dict.fromkeys(required_params) if not send_in.template_params.get(param)
+        param
+        for param in dict.fromkeys(required_params)
+        if not send_in.template_params.get(param)
     ]
     if missing_params:
         raise HTTPException(
@@ -492,6 +637,7 @@ def send_test_sms(
 )
 def read_sms_logs(
     session: SessionDep,
+    tenant_context: CurrentTenant,
     page: int = 1,
     page_size: int = 20,
     channel_id: uuid.UUID | None = None,
@@ -503,7 +649,7 @@ def read_sms_logs(
     template_id: uuid.UUID | None = None,
 ) -> Any:
     page, page_size = normalize_pagination(page=page, page_size=page_size)
-    filters = []
+    filters = [SmsLog.tenant_id == tenant_context.tenant_id]
     if keyword:
         pattern = f"%{keyword}%"
         filters.append(
@@ -559,8 +705,16 @@ def receive_sms_callback(
     callback_in: SmsDeliveryCallback,
     token: str | None = None,
 ) -> SmsLogPublic:
+    sms_log = session.exec(
+        select(SmsLog).where(SmsLog.api_request_id == callback_in.request_id)
+    ).first()
+    if not sms_log:
+        raise HTTPException(status_code=404, detail="SMS log not found")
     channel = session.exec(
-        select(SmsChannel).where(SmsChannel.code == channel_code)
+        select(SmsChannel).where(
+            SmsChannel.tenant_id == sms_log.tenant_id,
+            SmsChannel.code == channel_code,
+        )
     ).first()
     if not channel:
         raise HTTPException(status_code=404, detail="SMS channel not found")
@@ -569,13 +723,7 @@ def receive_sms_callback(
     if callback_in.status not in {"success", "failed"}:
         raise HTTPException(status_code=400, detail="Invalid SMS delivery status")
 
-    sms_log = session.exec(
-        select(SmsLog).where(
-            SmsLog.channel_id == channel.id,
-            SmsLog.api_request_id == callback_in.request_id,
-        )
-    ).first()
-    if not sms_log:
+    if sms_log.channel_id != channel.id:
         raise HTTPException(status_code=404, detail="SMS log not found")
 
     sms_log.receive_status = callback_in.status

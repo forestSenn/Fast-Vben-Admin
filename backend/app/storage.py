@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from sqlmodel import Session, select
 
 from app.core.config import settings
+from app.core.tenancy import DEFAULT_TENANT_ID
 from app.models import FileStorageChannel, SystemSetting
 
 StorageProvider = Literal["local", "s3"]
@@ -37,39 +38,69 @@ def get_upload_setting(
     session: Session | None,
     key: str,
     default: str,
+    tenant_id: uuid.UUID = DEFAULT_TENANT_ID,
 ) -> str:
     if session is None:
         return default
-    setting = session.exec(select(SystemSetting).where(SystemSetting.key == key)).first()
+    setting = session.exec(
+        select(SystemSetting).where(
+            SystemSetting.tenant_id == tenant_id,
+            SystemSetting.key == key,
+        )
+    ).first()
     return setting.value if setting else default
 
 
-def get_upload_max_size_mb(session: Session | None = None) -> int:
-    value = get_upload_setting(session, "upload.max_size_mb", str(settings.UPLOAD_MAX_SIZE_MB))
+def get_upload_max_size_mb(
+    session: Session | None = None,
+    tenant_id: uuid.UUID = DEFAULT_TENANT_ID,
+) -> int:
+    value = get_upload_setting(
+        session,
+        "upload.max_size_mb",
+        str(settings.UPLOAD_MAX_SIZE_MB),
+        tenant_id,
+    )
     try:
         return max(1, int(value))
     except ValueError:
         return settings.UPLOAD_MAX_SIZE_MB
 
 
-def get_upload_allowed_extensions(session: Session | None = None) -> str:
+def get_upload_allowed_extensions(
+    session: Session | None = None,
+    tenant_id: uuid.UUID = DEFAULT_TENANT_ID,
+) -> str:
     return get_upload_setting(
         session,
         "upload.allowed_extensions",
         settings.UPLOAD_ALLOWED_EXTENSIONS,
+        tenant_id,
     )
 
 
-def get_upload_default_public(session: Session | None = None) -> bool:
-    value = get_upload_setting(session, "upload.default_public", "false")
+def get_upload_default_public(
+    session: Session | None = None,
+    tenant_id: uuid.UUID = DEFAULT_TENANT_ID,
+) -> bool:
+    value = get_upload_setting(
+        session,
+        "upload.default_public",
+        "false",
+        tenant_id,
+    )
     return value.lower() in {"1", "true", "yes"}
 
 
-def get_presigned_url_expire_seconds(session: Session | None = None) -> int:
+def get_presigned_url_expire_seconds(
+    session: Session | None = None,
+    tenant_id: uuid.UUID = DEFAULT_TENANT_ID,
+) -> int:
     value = get_upload_setting(
         session,
         "upload.presigned_url_expire_seconds",
         str(settings.S3_PRESIGNED_URL_EXPIRE_SECONDS),
+        tenant_id,
     )
     try:
         return max(60, int(value))
@@ -77,17 +108,25 @@ def get_presigned_url_expire_seconds(session: Session | None = None) -> int:
         return settings.S3_PRESIGNED_URL_EXPIRE_SECONDS
 
 
-def get_default_storage_channel(session: Session | None = None) -> FileStorageChannel:
+def get_default_storage_channel(
+    session: Session | None = None,
+    tenant_id: uuid.UUID = DEFAULT_TENANT_ID,
+) -> FileStorageChannel:
     if session is not None:
         channel = session.exec(
             select(FileStorageChannel)
-            .where(FileStorageChannel.is_active, FileStorageChannel.is_default)
+            .where(
+                FileStorageChannel.tenant_id == tenant_id,
+                FileStorageChannel.is_active,
+                FileStorageChannel.is_default,
+            )
             .order_by(FileStorageChannel.created_at)
         ).first()
         if channel:
             return channel
 
     return FileStorageChannel(
+        tenant_id=tenant_id,
         name="本地存储" if settings.STORAGE_PROVIDER == "local" else "默认对象存储",
         code="local" if settings.STORAGE_PROVIDER == "local" else "default-s3",
         provider=settings.STORAGE_PROVIDER,
@@ -112,10 +151,13 @@ def get_upload_root() -> Path:
     return upload_root
 
 
-def get_allowed_extensions(session: Session | None = None) -> set[str]:
+def get_allowed_extensions(
+    session: Session | None = None,
+    tenant_id: uuid.UUID = DEFAULT_TENANT_ID,
+) -> set[str]:
     return {
         extension.strip().lower().lstrip(".")
-        for extension in get_upload_allowed_extensions(session).split(",")
+        for extension in get_upload_allowed_extensions(session, tenant_id).split(",")
         if extension.strip()
     }
 
@@ -125,17 +167,31 @@ def get_extension(filename: str) -> str | None:
     return suffix or None
 
 
-def validate_upload(file: UploadFile, session: Session | None = None) -> str | None:
+def validate_upload(
+    file: UploadFile,
+    session: Session | None = None,
+    tenant_id: uuid.UUID = DEFAULT_TENANT_ID,
+) -> str | None:
     extension = get_extension(file.filename or "")
-    allowed_extensions = get_allowed_extensions(session)
+    allowed_extensions = get_allowed_extensions(session, tenant_id)
     if allowed_extensions and (not extension or extension not in allowed_extensions):
         raise HTTPException(status_code=400, detail="File extension is not allowed")
     return extension
 
 
-def _build_storage_path(stored_name: str, channel: FileStorageChannel) -> str:
+def _build_storage_path(
+    stored_name: str,
+    channel: FileStorageChannel,
+    tenant_id: uuid.UUID,
+) -> str:
     now = datetime.now(UTC)
-    relative_path = Path(str(now.year)) / f"{now.month:02d}" / stored_name
+    relative_path = (
+        Path("tenants")
+        / str(tenant_id)
+        / str(now.year)
+        / f"{now.month:02d}"
+        / stored_name
+    )
     if channel.provider == "s3":
         prefix = (channel.object_prefix or "").strip("/")
         if prefix:
@@ -144,9 +200,11 @@ def _build_storage_path(stored_name: str, channel: FileStorageChannel) -> str:
 
 
 def _save_to_temporary_file(
-    file: UploadFile, session: Session | None = None
+    file: UploadFile,
+    session: Session | None = None,
+    tenant_id: uuid.UUID = DEFAULT_TENANT_ID,
 ) -> tuple[Path, int, str]:
-    max_size = get_upload_max_size_mb(session) * 1024 * 1024
+    max_size = get_upload_max_size_mb(session, tenant_id) * 1024 * 1024
     digest = hashlib.sha256()
     size = 0
     temporary_file = NamedTemporaryFile(delete=False)
@@ -196,20 +254,28 @@ def _ensure_s3_bucket(client: Any, channel: FileStorageChannel) -> None:
         create_kwargs: dict[str, object] = {"Bucket": channel.bucket}
         region = channel.region or settings.S3_REGION
         if region != "us-east-1":
-            create_kwargs["CreateBucketConfiguration"] = {
-                "LocationConstraint": region
-            }
+            create_kwargs["CreateBucketConfiguration"] = {"LocationConstraint": region}
         client.create_bucket(**create_kwargs)
     except (BotoCoreError, ClientError) as exc:
-        raise HTTPException(status_code=503, detail="Unable to create S3 bucket") from exc
+        raise HTTPException(
+            status_code=503, detail="Unable to create S3 bucket"
+        ) from exc
 
 
-def save_upload_file(file: UploadFile, session: Session | None = None) -> StoredFile:
-    channel = get_default_storage_channel(session)
-    extension = validate_upload(file, session)
+def save_upload_file(
+    file: UploadFile,
+    session: Session | None = None,
+    tenant_id: uuid.UUID = DEFAULT_TENANT_ID,
+) -> StoredFile:
+    channel = get_default_storage_channel(session, tenant_id)
+    extension = validate_upload(file, session, tenant_id)
     stored_name = f"{uuid.uuid4().hex}{f'.{extension}' if extension else ''}"
-    storage_path = _build_storage_path(stored_name, channel)
-    temporary_path, size, sha256 = _save_to_temporary_file(file, session)
+    storage_path = _build_storage_path(stored_name, channel, tenant_id)
+    temporary_path, size, sha256 = _save_to_temporary_file(
+        file,
+        session,
+        tenant_id,
+    )
 
     try:
         if channel.provider == "local":
@@ -257,18 +323,23 @@ def get_local_file_path(storage_path: str) -> Path:
 
 
 def delete_stored_file(
-    storage_provider: str, storage_path: str, session: Session | None = None
+    storage_provider: str,
+    storage_path: str,
+    session: Session | None = None,
+    tenant_id: uuid.UUID = DEFAULT_TENANT_ID,
 ) -> None:
     if storage_provider == "local":
         get_local_file_path(storage_path).unlink(missing_ok=True)
         return
     if storage_provider != "s3":
         raise HTTPException(status_code=400, detail="Unsupported storage provider")
-    channel = get_default_storage_channel(session)
+    channel = get_default_storage_channel(session, tenant_id)
     try:
         _get_s3_client(channel).delete_object(Bucket=channel.bucket, Key=storage_path)
     except (BotoCoreError, ClientError) as exc:
-        raise HTTPException(status_code=503, detail="Unable to delete stored file") from exc
+        raise HTTPException(
+            status_code=503, detail="Unable to delete stored file"
+        ) from exc
 
 
 def delete_local_file(storage_path: str) -> None:
@@ -277,9 +348,11 @@ def delete_local_file(storage_path: str) -> None:
 
 
 def _stream_s3_object(
-    storage_path: str, session: Session | None = None
+    storage_path: str,
+    session: Session | None = None,
+    tenant_id: uuid.UUID = DEFAULT_TENANT_ID,
 ) -> Iterator[bytes]:
-    channel = get_default_storage_channel(session)
+    channel = get_default_storage_channel(session, tenant_id)
     try:
         response = _get_s3_client(channel).get_object(
             Bucket=channel.bucket, Key=storage_path
@@ -301,6 +374,7 @@ def get_file_download_response(
     filename: str,
     content_type: str | None,
     session: Session | None = None,
+    tenant_id: uuid.UUID = DEFAULT_TENANT_ID,
 ) -> FileResponse | StreamingResponse:
     if storage_provider == "local":
         file_path = get_local_file_path(storage_path)
@@ -310,7 +384,7 @@ def get_file_download_response(
     if storage_provider != "s3":
         raise HTTPException(status_code=400, detail="Unsupported storage provider")
     return StreamingResponse(
-        _stream_s3_object(storage_path, session),
+        _stream_s3_object(storage_path, session, tenant_id),
         media_type=content_type or "application/octet-stream",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
@@ -322,17 +396,18 @@ def get_presigned_download_url(
     storage_path: str,
     fallback_url: str,
     session: Session | None = None,
+    tenant_id: uuid.UUID = DEFAULT_TENANT_ID,
 ) -> str:
     if storage_provider == "local":
         return fallback_url
     if storage_provider != "s3":
         raise HTTPException(status_code=400, detail="Unsupported storage provider")
-    channel = get_default_storage_channel(session)
+    channel = get_default_storage_channel(session, tenant_id)
     try:
         return _get_s3_client(channel).generate_presigned_url(
             "get_object",
             Params={"Bucket": channel.bucket, "Key": storage_path},
-            ExpiresIn=get_presigned_url_expire_seconds(session),
+            ExpiresIn=get_presigned_url_expire_seconds(session, tenant_id),
         )
     except (BotoCoreError, ClientError) as exc:
         raise HTTPException(

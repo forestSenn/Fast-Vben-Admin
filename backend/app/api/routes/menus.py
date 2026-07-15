@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlmodel import col, delete, func, select
 
 from app.api.deps import (
+    CurrentTenant,
     CurrentUser,
     SessionDep,
     normalize_pagination,
@@ -88,11 +89,16 @@ def read_menus(
 
 
 @router.get("/me", response_model=list[MenuPublic])
-def read_my_menus(session: SessionDep, current_user: CurrentUser) -> Any:
+def read_my_menus(
+    session: SessionDep,
+    current_user: CurrentUser,
+    tenant_context: CurrentTenant,
+) -> Any:
     cache_subject = "superuser" if current_user.is_superuser else current_user.id
     cache_key = redis_cache.build_versioned_key(
         CacheNamespace.RBAC,
         "menus",
+        tenant_context.tenant_id,
         cache_subject,
     )
     cached_menus = redis_cache.get_json(cache_key)
@@ -113,6 +119,8 @@ def read_my_menus(session: SessionDep, current_user: CurrentUser) -> Any:
             .join(UserRole, UserRole.role_id == RoleMenu.role_id)
             .where(
                 UserRole.user_id == current_user.id,
+                UserRole.tenant_id == tenant_context.tenant_id,
+                Role.tenant_id == tenant_context.tenant_id,
                 Menu.is_active,
                 Menu.is_visible,
                 Role.is_active,
@@ -128,11 +136,16 @@ def read_my_menus(session: SessionDep, current_user: CurrentUser) -> Any:
 
 
 @router.get("/permissions/me", response_model=list[str])
-def read_my_permissions(session: SessionDep, current_user: CurrentUser) -> Any:
+def read_my_permissions(
+    session: SessionDep,
+    current_user: CurrentUser,
+    tenant_context: CurrentTenant,
+) -> Any:
     cache_subject = "superuser" if current_user.is_superuser else current_user.id
     cache_key = redis_cache.build_versioned_key(
         CacheNamespace.RBAC,
         "permissions",
+        tenant_context.tenant_id,
         cache_subject,
     )
     cached_permissions = redis_cache.get_json(cache_key)
@@ -153,12 +166,16 @@ def read_my_permissions(session: SessionDep, current_user: CurrentUser) -> Any:
             .join(UserRole, UserRole.role_id == RoleMenu.role_id)
             .where(
                 UserRole.user_id == current_user.id,
+                UserRole.tenant_id == tenant_context.tenant_id,
+                Role.tenant_id == tenant_context.tenant_id,
                 Menu.permission_code.is_not(None),
                 Menu.is_active,
                 Role.is_active,
             )
         ).all()
-    resolved_permissions = sorted({permission for permission in permissions if permission})
+    resolved_permissions = sorted(
+        {permission for permission in permissions if permission}
+    )
     redis_cache.set_json(cache_key, resolved_permissions)
     return resolved_permissions
 
@@ -176,7 +193,9 @@ def create_menu(*, session: SessionDep, menu_in: MenuCreate) -> Any:
             select(Menu).where(Menu.permission_code == menu_in.permission_code)
         ).first()
         if existing_menu:
-            raise HTTPException(status_code=409, detail="Permission code already exists")
+            raise HTTPException(
+                status_code=409, detail="Permission code already exists"
+            )
 
     menu = Menu.model_validate(menu_in)
     session.add(menu)
@@ -191,9 +210,7 @@ def create_menu(*, session: SessionDep, menu_in: MenuCreate) -> Any:
     dependencies=[Depends(require_permission("system:menu:update"))],
     response_model=MenuPublic,
 )
-def update_menu(
-    *, session: SessionDep, menu_id: uuid.UUID, menu_in: MenuUpdate
-) -> Any:
+def update_menu(*, session: SessionDep, menu_id: uuid.UUID, menu_in: MenuUpdate) -> Any:
     menu = session.get(Menu, menu_id)
     if not menu:
         raise HTTPException(status_code=404, detail="Menu not found")
@@ -212,7 +229,9 @@ def update_menu(
             select(Menu).where(Menu.permission_code == menu_in.permission_code)
         ).first()
         if existing_menu:
-            raise HTTPException(status_code=409, detail="Permission code already exists")
+            raise HTTPException(
+                status_code=409, detail="Permission code already exists"
+            )
 
     menu.sqlmodel_update(menu_in.model_dump(exclude_unset=True))
     menu.updated_at = get_datetime_utc()

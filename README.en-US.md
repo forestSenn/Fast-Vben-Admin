@@ -24,6 +24,11 @@ See [Enterprise OIDC configuration](docs/enterprise-oidc.md) for environment set
 - Database-table-driven FastAPI/Vben module ZIP generation.
 - OpenAPI TypeScript client generation.
 - Backend, frontend and Docker Compose CI workflows.
+- v2.0 multi-tenancy with shared-schema tenants and memberships, tenant-bound login context, platform tenant and plan management, safe switching, quotas, system-wide tenant isolation, and all/department/department-and-children/self/custom data scopes.
+- Configurable tenant initialization templates for root departments and optional post, dictionary, setting, storage, messaging, SMS, and mail seed data.
+- An independent, disabled-by-default BPM POC with versioning, approval actions, assignment expressions, audit trails, timeout markers, and tenant isolation.
+
+See [Optional BPM Workflow POC](./docs/workflows.md) for enablement, scope, and licensing constraints.
 
 Verified locally:
 

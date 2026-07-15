@@ -5,7 +5,12 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlmodel import col, func, or_, select
 
-from app.api.deps import SessionDep, normalize_pagination, require_permission
+from app.api.deps import (
+    CurrentTenant,
+    SessionDep,
+    normalize_pagination,
+    require_permission,
+)
 from app.mail import get_template_params, render_template, send_mail
 from app.models import (
     MailAccount,
@@ -36,9 +41,16 @@ def mask_account(account: MailAccount) -> MailAccountPublic:
 
 
 def ensure_account_code_unique(
-    *, session: SessionDep, code: str, exclude_id: uuid.UUID | None = None
+    *,
+    session: SessionDep,
+    tenant_id: uuid.UUID,
+    code: str,
+    exclude_id: uuid.UUID | None = None,
 ) -> None:
-    statement = select(MailAccount).where(MailAccount.code == code)
+    statement = select(MailAccount).where(
+        MailAccount.tenant_id == tenant_id,
+        MailAccount.code == code,
+    )
     if exclude_id:
         statement = statement.where(MailAccount.id != exclude_id)
     if session.exec(statement).first():
@@ -46,9 +58,16 @@ def ensure_account_code_unique(
 
 
 def ensure_template_code_unique(
-    *, session: SessionDep, code: str, exclude_id: uuid.UUID | None = None
+    *,
+    session: SessionDep,
+    tenant_id: uuid.UUID,
+    code: str,
+    exclude_id: uuid.UUID | None = None,
 ) -> None:
-    statement = select(MailTemplate).where(MailTemplate.code == code)
+    statement = select(MailTemplate).where(
+        MailTemplate.tenant_id == tenant_id,
+        MailTemplate.code == code,
+    )
     if exclude_id:
         statement = statement.where(MailTemplate.id != exclude_id)
     if session.exec(statement).first():
@@ -56,9 +75,15 @@ def ensure_template_code_unique(
 
 
 def clear_default_accounts(
-    *, session: SessionDep, exclude_id: uuid.UUID | None = None
+    *,
+    session: SessionDep,
+    tenant_id: uuid.UUID,
+    exclude_id: uuid.UUID | None = None,
 ) -> None:
-    statement = select(MailAccount).where(MailAccount.is_default)
+    statement = select(MailAccount).where(
+        MailAccount.tenant_id == tenant_id,
+        MailAccount.is_default,
+    )
     if exclude_id:
         statement = statement.where(MailAccount.id != exclude_id)
     for account in session.exec(statement).all():
@@ -71,10 +96,19 @@ def get_template_account(
     *, session: SessionDep, template: MailTemplate
 ) -> MailAccount | None:
     if template.account_id:
-        return session.get(MailAccount, template.account_id)
+        return session.exec(
+            select(MailAccount).where(
+                MailAccount.id == template.account_id,
+                MailAccount.tenant_id == template.tenant_id,
+            )
+        ).first()
     return session.exec(
         select(MailAccount)
-        .where(MailAccount.is_default, MailAccount.is_active)
+        .where(
+            MailAccount.tenant_id == template.tenant_id,
+            MailAccount.is_default,
+            MailAccount.is_active,
+        )
         .order_by(col(MailAccount.created_at))
     ).first()
 
@@ -98,6 +132,7 @@ def validate_template_params(
 def create_mail_log(
     *,
     session: SessionDep,
+    tenant_id: uuid.UUID,
     account: MailAccount | None,
     template: MailTemplate | None,
     to_email: str,
@@ -111,6 +146,7 @@ def create_mail_log(
     from_name: str | None = None,
 ) -> MailLog:
     log = MailLog(
+        tenant_id=tenant_id,
         account_id=account.id if account else None,
         account_code=account.code if account else None,
         account_name=account.name if account else None,
@@ -140,6 +176,7 @@ def create_mail_log(
 def send_with_account(
     *,
     session: SessionDep,
+    tenant_id: uuid.UUID,
     account: MailAccount | None,
     template: MailTemplate | None,
     to_email: str,
@@ -151,6 +188,7 @@ def send_with_account(
     if not account:
         return create_mail_log(
             session=session,
+            tenant_id=tenant_id,
             account=None,
             template=template,
             to_email=to_email,
@@ -165,6 +203,7 @@ def send_with_account(
     if not account.is_active:
         return create_mail_log(
             session=session,
+            tenant_id=tenant_id,
             account=account,
             template=template,
             to_email=to_email,
@@ -188,6 +227,7 @@ def send_with_account(
     except Exception as exc:
         return create_mail_log(
             session=session,
+            tenant_id=tenant_id,
             account=account,
             template=template,
             to_email=to_email,
@@ -201,6 +241,7 @@ def send_with_account(
         )
     return create_mail_log(
         session=session,
+        tenant_id=tenant_id,
         account=account,
         template=template,
         to_email=to_email,
@@ -222,13 +263,14 @@ def send_with_account(
 )
 def read_mail_accounts(
     session: SessionDep,
+    tenant_context: CurrentTenant,
     page: int = 1,
     page_size: int = 20,
     keyword: str | None = None,
     is_active: bool | None = None,
 ) -> Any:
     page, page_size = normalize_pagination(page=page, page_size=page_size)
-    filters = []
+    filters = [MailAccount.tenant_id == tenant_context.tenant_id]
     if keyword:
         pattern = f"%{keyword}%"
         filters.append(
@@ -269,10 +311,16 @@ def read_mail_accounts(
     dependencies=[Depends(require_permission("system:mail-template:list"))],
     response_model=list[MailAccountPublic],
 )
-def read_simple_mail_accounts(session: SessionDep) -> Any:
+def read_simple_mail_accounts(
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+) -> Any:
     accounts = session.exec(
         select(MailAccount)
-        .where(MailAccount.is_active)
+        .where(
+            MailAccount.tenant_id == tenant_context.tenant_id,
+            MailAccount.is_active,
+        )
         .order_by(col(MailAccount.is_default).desc(), col(MailAccount.name))
     ).all()
     return [mask_account(account) for account in accounts]
@@ -284,12 +332,25 @@ def read_simple_mail_accounts(session: SessionDep) -> Any:
     response_model=MailAccountPublic,
 )
 def create_mail_account(
-    *, session: SessionDep, account_in: MailAccountCreate
+    *,
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    account_in: MailAccountCreate,
 ) -> MailAccountPublic:
-    ensure_account_code_unique(session=session, code=account_in.code)
-    account = MailAccount.model_validate(account_in)
+    ensure_account_code_unique(
+        session=session,
+        tenant_id=tenant_context.tenant_id,
+        code=account_in.code,
+    )
+    account = MailAccount.model_validate(
+        account_in,
+        update={"tenant_id": tenant_context.tenant_id},
+    )
     if account.is_default:
-        clear_default_accounts(session=session)
+        clear_default_accounts(
+            session=session,
+            tenant_id=tenant_context.tenant_id,
+        )
     session.add(account)
     session.commit()
     session.refresh(account)
@@ -304,23 +365,34 @@ def create_mail_account(
 def update_mail_account(
     *,
     session: SessionDep,
+    tenant_context: CurrentTenant,
     account_id: uuid.UUID,
     account_in: MailAccountUpdate,
 ) -> MailAccountPublic:
-    account = session.get(MailAccount, account_id)
+    account = session.exec(
+        select(MailAccount).where(
+            MailAccount.id == account_id,
+            MailAccount.tenant_id == tenant_context.tenant_id,
+        )
+    ).first()
     if not account:
         raise HTTPException(status_code=404, detail="Mail account not found")
     update_data = account_in.model_dump(exclude_unset=True)
     if "code" in update_data and update_data["code"] != account.code:
         ensure_account_code_unique(
             session=session,
+            tenant_id=tenant_context.tenant_id,
             code=update_data["code"],
             exclude_id=account.id,
         )
     if update_data.get("password") in {"", "******"}:
         update_data.pop("password")
     if update_data.get("is_default"):
-        clear_default_accounts(session=session, exclude_id=account.id)
+        clear_default_accounts(
+            session=session,
+            tenant_id=tenant_context.tenant_id,
+            exclude_id=account.id,
+        )
     account.sqlmodel_update(update_data)
     account.updated_at = get_datetime_utc()
     session.add(account)
@@ -334,16 +406,38 @@ def update_mail_account(
     dependencies=[Depends(require_permission("system:mail-account:delete"))],
     status_code=204,
 )
-def delete_mail_account(session: SessionDep, account_id: uuid.UUID) -> None:
-    account = session.get(MailAccount, account_id)
+def delete_mail_account(
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    account_id: uuid.UUID,
+) -> None:
+    account = session.exec(
+        select(MailAccount).where(
+            MailAccount.id == account_id,
+            MailAccount.tenant_id == tenant_context.tenant_id,
+        )
+    ).first()
     if not account:
         raise HTTPException(status_code=404, detail="Mail account not found")
     if account.is_default:
-        raise HTTPException(status_code=400, detail="Cannot delete default mail account")
+        raise HTTPException(
+            status_code=400, detail="Cannot delete default mail account"
+        )
     if session.exec(
-        select(MailTemplate).where(MailTemplate.account_id == account_id)
+        select(MailTemplate).where(
+            MailTemplate.tenant_id == tenant_context.tenant_id,
+            MailTemplate.account_id == account_id,
+        )
     ).first():
         raise HTTPException(status_code=400, detail="Mail account is used by templates")
+    for mail_log in session.exec(
+        select(MailLog).where(
+            MailLog.tenant_id == tenant_context.tenant_id,
+            MailLog.account_id == account_id,
+        )
+    ).all():
+        mail_log.account_id = None
+        session.add(mail_log)
     session.delete(account)
     session.commit()
 
@@ -355,6 +449,7 @@ def delete_mail_account(session: SessionDep, account_id: uuid.UUID) -> None:
 )
 def read_mail_templates(
     session: SessionDep,
+    tenant_context: CurrentTenant,
     page: int = 1,
     page_size: int = 20,
     keyword: str | None = None,
@@ -362,7 +457,7 @@ def read_mail_templates(
     is_active: bool | None = None,
 ) -> Any:
     page, page_size = normalize_pagination(page=page, page_size=page_size)
-    filters = []
+    filters = [MailTemplate.tenant_id == tenant_context.tenant_id]
     if keyword:
         pattern = f"%{keyword}%"
         filters.append(
@@ -403,15 +498,30 @@ def read_mail_templates(
     response_model=MailTemplatePublic,
 )
 def create_mail_template(
-    *, session: SessionDep, template_in: MailTemplateCreate
+    *,
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    template_in: MailTemplateCreate,
 ) -> MailTemplatePublic:
-    ensure_template_code_unique(session=session, code=template_in.code)
+    ensure_template_code_unique(
+        session=session,
+        tenant_id=tenant_context.tenant_id,
+        code=template_in.code,
+    )
     template = MailTemplate.model_validate(
         template_in,
-        update={"params": get_template_params(template_in.title, template_in.content)},
+        update={
+            "params": get_template_params(template_in.title, template_in.content),
+            "tenant_id": tenant_context.tenant_id,
+        },
     )
     if template.account_id:
-        account = session.get(MailAccount, template.account_id)
+        account = session.exec(
+            select(MailAccount).where(
+                MailAccount.id == template.account_id,
+                MailAccount.tenant_id == tenant_context.tenant_id,
+            )
+        ).first()
         if not account:
             raise HTTPException(status_code=400, detail="Mail account not found")
         template.account_code = account.code
@@ -429,23 +539,35 @@ def create_mail_template(
 def update_mail_template(
     *,
     session: SessionDep,
+    tenant_context: CurrentTenant,
     template_id: uuid.UUID,
     template_in: MailTemplateUpdate,
 ) -> MailTemplatePublic:
-    template = session.get(MailTemplate, template_id)
+    template = session.exec(
+        select(MailTemplate).where(
+            MailTemplate.id == template_id,
+            MailTemplate.tenant_id == tenant_context.tenant_id,
+        )
+    ).first()
     if not template:
         raise HTTPException(status_code=404, detail="Mail template not found")
     update_data = template_in.model_dump(exclude_unset=True)
     if "code" in update_data and update_data["code"] != template.code:
         ensure_template_code_unique(
             session=session,
+            tenant_id=tenant_context.tenant_id,
             code=update_data["code"],
             exclude_id=template.id,
         )
     if "account_id" in update_data:
         account_id = update_data["account_id"]
         if account_id:
-            account = session.get(MailAccount, account_id)
+            account = session.exec(
+                select(MailAccount).where(
+                    MailAccount.id == account_id,
+                    MailAccount.tenant_id == tenant_context.tenant_id,
+                )
+            ).first()
             if not account:
                 raise HTTPException(status_code=400, detail="Mail account not found")
             update_data["account_code"] = account.code
@@ -467,10 +589,27 @@ def update_mail_template(
     dependencies=[Depends(require_permission("system:mail-template:delete"))],
     status_code=204,
 )
-def delete_mail_template(session: SessionDep, template_id: uuid.UUID) -> Response:
-    template = session.get(MailTemplate, template_id)
+def delete_mail_template(
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    template_id: uuid.UUID,
+) -> Response:
+    template = session.exec(
+        select(MailTemplate).where(
+            MailTemplate.id == template_id,
+            MailTemplate.tenant_id == tenant_context.tenant_id,
+        )
+    ).first()
     if not template:
         raise HTTPException(status_code=404, detail="Mail template not found")
+    for mail_log in session.exec(
+        select(MailLog).where(
+            MailLog.tenant_id == tenant_context.tenant_id,
+            MailLog.template_id == template_id,
+        )
+    ).all():
+        mail_log.template_id = None
+        session.add(mail_log)
     session.delete(template)
     session.commit()
     return Response(status_code=204)
@@ -484,10 +623,16 @@ def delete_mail_template(session: SessionDep, template_id: uuid.UUID) -> Respons
 def send_test_mail(
     *,
     session: SessionDep,
+    tenant_context: CurrentTenant,
     template_id: uuid.UUID,
     send_in: MailSendRequest,
 ) -> MailLogPublic:
-    template = session.get(MailTemplate, template_id)
+    template = session.exec(
+        select(MailTemplate).where(
+            MailTemplate.id == template_id,
+            MailTemplate.tenant_id == tenant_context.tenant_id,
+        )
+    ).first()
     if not template:
         raise HTTPException(status_code=404, detail="Mail template not found")
     if not template.is_active:
@@ -497,6 +642,7 @@ def send_test_mail(
     return MailLogPublic.model_validate(
         send_with_account(
             session=session,
+            tenant_id=tenant_context.tenant_id,
             account=account,
             template=template,
             to_email=str(send_in.to_email),
@@ -515,6 +661,7 @@ def send_test_mail(
 )
 def read_mail_logs(
     session: SessionDep,
+    tenant_context: CurrentTenant,
     page: int = 1,
     page_size: int = 20,
     keyword: str | None = None,
@@ -524,7 +671,7 @@ def read_mail_logs(
     send_status: str | None = None,
 ) -> Any:
     page, page_size = normalize_pagination(page=page, page_size=page_size)
-    filters = []
+    filters = [MailLog.tenant_id == tenant_context.tenant_id]
     if keyword:
         pattern = f"%{keyword}%"
         filters.append(
@@ -569,14 +716,34 @@ def read_mail_logs(
     dependencies=[Depends(require_permission("system:mail-log:resend"))],
     response_model=MailLogPublic,
 )
-def resend_mail_log(*, session: SessionDep, log_id: uuid.UUID) -> MailLogPublic:
-    log = session.get(MailLog, log_id)
+def resend_mail_log(
+    *,
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    log_id: uuid.UUID,
+) -> MailLogPublic:
+    log = session.exec(
+        select(MailLog).where(
+            MailLog.id == log_id,
+            MailLog.tenant_id == tenant_context.tenant_id,
+        )
+    ).first()
     if not log:
         raise HTTPException(status_code=404, detail="Mail log not found")
-    account = session.get(MailAccount, log.account_id) if log.account_id else None
+    account = (
+        session.exec(
+            select(MailAccount).where(
+                MailAccount.id == log.account_id,
+                MailAccount.tenant_id == tenant_context.tenant_id,
+            )
+        ).first()
+        if log.account_id
+        else None
+    )
     return MailLogPublic.model_validate(
         send_with_account(
             session=session,
+            tenant_id=tenant_context.tenant_id,
             account=account,
             template=None,
             to_email=log.to_email,

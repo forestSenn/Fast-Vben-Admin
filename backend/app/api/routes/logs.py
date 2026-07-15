@@ -4,7 +4,12 @@ from typing import Any
 from fastapi import APIRouter, Depends
 from sqlmodel import col, func, or_, select
 
-from app.api.deps import SessionDep, normalize_pagination, require_permission
+from app.api.deps import (
+    CurrentTenant,
+    SessionDep,
+    normalize_pagination,
+    require_permission,
+)
 from app.models import (
     LoginLog,
     LoginLogPublic,
@@ -24,6 +29,7 @@ router = APIRouter(prefix="/logs", tags=["logs"])
 )
 def read_login_logs(
     session: SessionDep,
+    tenant_context: CurrentTenant,
     page: int = 1,
     page_size: int = 20,
     keyword: str | None = None,
@@ -32,7 +38,7 @@ def read_login_logs(
     created_to: datetime | None = None,
 ) -> Any:
     page, page_size = normalize_pagination(page=page, page_size=page_size)
-    filters = []
+    filters = [LoginLog.tenant_id == tenant_context.tenant_id]
     if status:
         filters.append(LoginLog.status == status)
     if created_from:
@@ -78,6 +84,7 @@ def read_login_logs(
 )
 def read_operation_logs(
     session: SessionDep,
+    tenant_context: CurrentTenant,
     page: int = 1,
     page_size: int = 20,
     keyword: str | None = None,
@@ -87,7 +94,7 @@ def read_operation_logs(
     created_to: datetime | None = None,
 ) -> Any:
     page, page_size = normalize_pagination(page=page, page_size=page_size)
-    filters = []
+    filters = [OperationLog.tenant_id == tenant_context.tenant_id]
     if method:
         filters.append(OperationLog.method == method.upper())
     if status_code:

@@ -4,7 +4,13 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import col, func, select
 
-from app.api.deps import SessionDep, normalize_pagination, require_permission
+from app.api.deps import (
+    CurrentTenant,
+    PublicTenantId,
+    SessionDep,
+    normalize_pagination,
+    require_permission,
+)
 from app.core.cache import CacheNamespace, redis_cache
 from app.models import (
     SystemSetting,
@@ -24,13 +30,14 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 )
 def read_settings(
     session: SessionDep,
+    tenant_context: CurrentTenant,
     group: str | None = None,
     page: int = 1,
     page_size: int = 50,
     keyword: str | None = None,
 ) -> Any:
     page, page_size = normalize_pagination(page=page, page_size=page_size)
-    filters = []
+    filters = [SystemSetting.tenant_id == tenant_context.tenant_id]
     if group:
         filters.append(SystemSetting.group == group)
     if keyword:
@@ -63,21 +70,32 @@ def read_settings(
 
 
 @router.get("/public", response_model=list[SystemSettingPublic])
-def read_public_settings(session: SessionDep) -> Any:
+def read_public_settings(
+    session: SessionDep,
+    public_tenant_id: PublicTenantId,
+) -> Any:
     cache_key = redis_cache.build_versioned_key(
         CacheNamespace.PUBLIC_SETTINGS,
+        str(public_tenant_id),
         "all",
     )
     cached_settings = redis_cache.get_json(cache_key)
     if cached_settings is not None:
-        return [SystemSettingPublic.model_validate(setting) for setting in cached_settings]
+        return [
+            SystemSettingPublic.model_validate(setting) for setting in cached_settings
+        ]
 
     settings = session.exec(
         select(SystemSetting)
-        .where(SystemSetting.is_public)
+        .where(
+            SystemSetting.tenant_id == public_tenant_id,
+            SystemSetting.is_public,
+        )
         .order_by(col(SystemSetting.group), col(SystemSetting.key))
     ).all()
-    public_settings = [SystemSettingPublic.model_validate(setting) for setting in settings]
+    public_settings = [
+        SystemSettingPublic.model_validate(setting) for setting in settings
+    ]
     redis_cache.set_json(
         cache_key,
         [setting.model_dump(mode="json") for setting in public_settings],
@@ -91,9 +109,18 @@ def read_public_settings(session: SessionDep) -> Any:
     response_model=SystemSettingPublic,
 )
 def update_setting(
-    *, session: SessionDep, key: str, setting_in: SystemSettingUpdate
+    *,
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    key: str,
+    setting_in: SystemSettingUpdate,
 ) -> Any:
-    setting = session.exec(select(SystemSetting).where(SystemSetting.key == key)).first()
+    setting = session.exec(
+        select(SystemSetting).where(
+            SystemSetting.tenant_id == tenant_context.tenant_id,
+            SystemSetting.key == key,
+        )
+    ).first()
     if not setting:
         raise HTTPException(status_code=404, detail="System setting not found")
 

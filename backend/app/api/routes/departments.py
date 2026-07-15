@@ -4,14 +4,19 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlmodel import col, func, select
 
-from app.api.deps import SessionDep, normalize_pagination, require_permission
+from app.api.deps import (
+    CurrentTenant,
+    SessionDep,
+    normalize_pagination,
+    require_permission,
+)
 from app.models import (
     Department,
     DepartmentCreate,
     DepartmentPublic,
     DepartmentsPublic,
     DepartmentUpdate,
-    User,
+    TenantMembership,
     get_datetime_utc,
 )
 
@@ -19,7 +24,11 @@ router = APIRouter(prefix="/departments", tags=["departments"])
 
 
 def is_descendant_department(
-    *, session: SessionDep, department_id: uuid.UUID, possible_descendant_id: uuid.UUID
+    *,
+    session: SessionDep,
+    tenant_id: uuid.UUID,
+    department_id: uuid.UUID,
+    possible_descendant_id: uuid.UUID,
 ) -> bool:
     current_id: uuid.UUID | None = possible_descendant_id
     visited: set[uuid.UUID] = set()
@@ -29,9 +38,28 @@ def is_descendant_department(
         if current_id in visited:
             return True
         visited.add(current_id)
-        current = session.get(Department, current_id)
+        current = session.exec(
+            select(Department).where(
+                Department.id == current_id,
+                Department.tenant_id == tenant_id,
+            )
+        ).first()
         current_id = current.parent_id if current else None
     return False
+
+
+def get_department_or_404(
+    *, session: SessionDep, tenant_id: uuid.UUID, department_id: uuid.UUID
+) -> Department:
+    department = session.exec(
+        select(Department).where(
+            Department.id == department_id,
+            Department.tenant_id == tenant_id,
+        )
+    ).first()
+    if department is None:
+        raise HTTPException(status_code=404, detail="Department not found")
+    return department
 
 
 @router.get(
@@ -41,6 +69,7 @@ def is_descendant_department(
 )
 def read_departments(
     session: SessionDep,
+    tenant_context: CurrentTenant,
     page: int = 1,
     page_size: int = 200,
     keyword: str | None = None,
@@ -48,7 +77,7 @@ def read_departments(
     page, page_size = normalize_pagination(
         page=page, page_size=page_size, max_page_size=500
     )
-    filters = []
+    filters = [Department.tenant_id == tenant_context.tenant_id]
     if keyword:
         pattern = f"%{keyword}%"
         filters.append(
@@ -73,8 +102,7 @@ def read_departments(
     departments = session.exec(statement).all()
     return DepartmentsPublic(
         items=[
-            DepartmentPublic.model_validate(department)
-            for department in departments
+            DepartmentPublic.model_validate(department) for department in departments
         ],
         total=count,
         page=page,
@@ -87,19 +115,41 @@ def read_departments(
     dependencies=[Depends(require_permission("system:department:create"))],
     response_model=DepartmentPublic,
 )
-def create_department(*, session: SessionDep, department_in: DepartmentCreate) -> Any:
-    if department_in.parent_id and not session.get(Department, department_in.parent_id):
-        raise HTTPException(status_code=400, detail="Parent department does not exist")
-    if department_in.leader_user_id and not session.get(User, department_in.leader_user_id):
-        raise HTTPException(status_code=400, detail="Leader user does not exist")
+def create_department(
+    *,
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    department_in: DepartmentCreate,
+) -> Any:
+    if department_in.parent_id:
+        get_department_or_404(
+            session=session,
+            tenant_id=tenant_context.tenant_id,
+            department_id=department_in.parent_id,
+        )
+    if department_in.leader_user_id:
+        membership = session.exec(
+            select(TenantMembership).where(
+                TenantMembership.user_id == department_in.leader_user_id,
+                TenantMembership.tenant_id == tenant_context.tenant_id,
+            )
+        ).first()
+        if membership is None:
+            raise HTTPException(status_code=400, detail="Leader user does not exist")
 
     existing_department = session.exec(
-        select(Department).where(Department.code == department_in.code)
+        select(Department).where(
+            Department.tenant_id == tenant_context.tenant_id,
+            Department.code == department_in.code,
+        )
     ).first()
     if existing_department:
         raise HTTPException(status_code=409, detail="Department code already exists")
 
-    department = Department.model_validate(department_in)
+    department = Department.model_validate(
+        department_in,
+        update={"tenant_id": tenant_context.tenant_id},
+    )
     session.add(department)
     session.commit()
     session.refresh(department)
@@ -112,33 +162,56 @@ def create_department(*, session: SessionDep, department_in: DepartmentCreate) -
     response_model=DepartmentPublic,
 )
 def update_department(
-    *, session: SessionDep, department_id: uuid.UUID, department_in: DepartmentUpdate
+    *,
+    session: SessionDep,
+    department_id: uuid.UUID,
+    department_in: DepartmentUpdate,
+    tenant_context: CurrentTenant,
 ) -> Any:
-    department = session.get(Department, department_id)
-    if not department:
-        raise HTTPException(status_code=404, detail="Department not found")
+    department = get_department_or_404(
+        session=session,
+        tenant_id=tenant_context.tenant_id,
+        department_id=department_id,
+    )
     if department_in.parent_id == department_id:
         raise HTTPException(
             status_code=400, detail="Department cannot be its own parent"
         )
-    if department_in.parent_id and not session.get(Department, department_in.parent_id):
-        raise HTTPException(status_code=400, detail="Parent department does not exist")
+    if department_in.parent_id:
+        get_department_or_404(
+            session=session,
+            tenant_id=tenant_context.tenant_id,
+            department_id=department_in.parent_id,
+        )
     if department_in.parent_id and is_descendant_department(
         session=session,
+        tenant_id=tenant_context.tenant_id,
         department_id=department_id,
         possible_descendant_id=department_in.parent_id,
     ):
         raise HTTPException(
             status_code=400, detail="Department parent cannot be a child"
         )
-    if department_in.leader_user_id and not session.get(User, department_in.leader_user_id):
-        raise HTTPException(status_code=400, detail="Leader user does not exist")
+    if department_in.leader_user_id:
+        membership = session.exec(
+            select(TenantMembership).where(
+                TenantMembership.user_id == department_in.leader_user_id,
+                TenantMembership.tenant_id == tenant_context.tenant_id,
+            )
+        ).first()
+        if membership is None:
+            raise HTTPException(status_code=400, detail="Leader user does not exist")
     if department_in.code and department_in.code != department.code:
         existing_department = session.exec(
-            select(Department).where(Department.code == department_in.code)
+            select(Department).where(
+                Department.tenant_id == tenant_context.tenant_id,
+                Department.code == department_in.code,
+            )
         ).first()
         if existing_department:
-            raise HTTPException(status_code=409, detail="Department code already exists")
+            raise HTTPException(
+                status_code=409, detail="Department code already exists"
+            )
 
     department.sqlmodel_update(department_in.model_dump(exclude_unset=True))
     department.updated_at = get_datetime_utc()
@@ -153,19 +226,32 @@ def update_department(
     dependencies=[Depends(require_permission("system:department:delete"))],
     status_code=204,
 )
-def delete_department(*, session: SessionDep, department_id: uuid.UUID) -> Response:
-    department = session.get(Department, department_id)
-    if not department:
-        raise HTTPException(status_code=404, detail="Department not found")
+def delete_department(
+    *,
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    department_id: uuid.UUID,
+) -> Response:
+    department = get_department_or_404(
+        session=session,
+        tenant_id=tenant_context.tenant_id,
+        department_id=department_id,
+    )
 
     child_department = session.exec(
-        select(Department).where(Department.parent_id == department_id)
+        select(Department).where(
+            Department.tenant_id == tenant_context.tenant_id,
+            Department.parent_id == department_id,
+        )
     ).first()
     if child_department:
         raise HTTPException(status_code=400, detail="Department has child departments")
 
     bound_user = session.exec(
-        select(User).where(User.department_id == department_id)
+        select(TenantMembership).where(
+            TenantMembership.tenant_id == tenant_context.tenant_id,
+            TenantMembership.department_id == department_id,
+        )
     ).first()
     if bound_user:
         raise HTTPException(status_code=400, detail="Department has users")

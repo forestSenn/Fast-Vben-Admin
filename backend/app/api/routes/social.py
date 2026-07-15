@@ -184,10 +184,7 @@ def update_social_client(
         update_data["client_secret"] = encrypt_secret(update_data["client_secret"])
     next_social_type = update_data.get("social_type", client.social_type)
     next_user_type = update_data.get("user_type", client.user_type)
-    if (
-        next_social_type != client.social_type
-        or next_user_type != client.user_type
-    ):
+    if next_social_type != client.social_type or next_user_type != client.user_type:
         ensure_social_client_unique(
             session=session,
             social_type=next_social_type,
@@ -266,7 +263,9 @@ def read_social_users(
         .limit(page_size)
     ).all()
     return SocialUsersPublic(
-        items=[to_social_user_public(session=session, social_user=user) for user in users],
+        items=[
+            to_social_user_public(session=session, social_user=user) for user in users
+        ],
         total=count,
         page=page,
         page_size=page_size,

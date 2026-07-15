@@ -129,7 +129,11 @@ function onCreate() {
     <PermissionDrawer @success="onRefresh" />
     <Grid table-title="角色列表">
       <template #toolbar-tools>
-        <Button v-access:code="'system:role:create'" type="primary" @click="onCreate">
+        <Button
+          v-access:code="'system:role:create'"
+          type="primary"
+          @click="onCreate"
+        >
           <Plus class="size-5" />
           新增角色
         </Button>

@@ -13,5 +13,7 @@ export * from './site-messages';
 export * from './sms';
 export * from './social';
 export * from './system-config';
+export * from './tenants';
 export * from './user';
 export * from './users';
+export * from './workflows';

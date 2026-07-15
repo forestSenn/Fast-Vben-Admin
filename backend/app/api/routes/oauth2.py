@@ -61,18 +61,28 @@ def validate_requested_scopes(client: OAuth2Client, scope: str | None) -> str:
 def authenticate_protocol_client(
     *, session: SessionDep, client_id: str, client_secret: str | None
 ) -> OAuth2Client:
-    client = session.exec(select(OAuth2Client).where(OAuth2Client.client_id == client_id)).first()
+    client = session.exec(
+        select(OAuth2Client).where(OAuth2Client.client_id == client_id)
+    ).first()
     if not client or not client.is_active:
-        raise HTTPException(status_code=401, detail="OAuth2 client authentication failed")
+        raise HTTPException(
+            status_code=401, detail="OAuth2 client authentication failed"
+        )
     if client.client_secret:
         if not client_secret:
-            raise HTTPException(status_code=401, detail="OAuth2 client authentication failed")
+            raise HTTPException(
+                status_code=401, detail="OAuth2 client authentication failed"
+            )
         try:
             expected_secret = decrypt_secret(client.client_secret)
         except ValueError:
-            raise HTTPException(status_code=401, detail="OAuth2 client authentication failed")
+            raise HTTPException(
+                status_code=401, detail="OAuth2 client authentication failed"
+            )
         if expected_secret != client_secret:
-            raise HTTPException(status_code=401, detail="OAuth2 client authentication failed")
+            raise HTTPException(
+                status_code=401, detail="OAuth2 client authentication failed"
+            )
     return client
 
 
@@ -104,17 +114,25 @@ def authorize_oauth2(
     state: str | None = None,
     approved: bool = False,
 ) -> dict[str, str] | RedirectResponse:
-    client = session.exec(select(OAuth2Client).where(OAuth2Client.client_id == client_id)).first()
+    client = session.exec(
+        select(OAuth2Client).where(OAuth2Client.client_id == client_id)
+    ).first()
     if not client or not client.is_active:
         raise HTTPException(status_code=400, detail="OAuth2 client is invalid")
     validate_redirect_uri(client, redirect_uri)
-    if response_type != "code" or "authorization_code" not in split_csv(client.authorized_grant_types):
+    if response_type != "code" or "authorization_code" not in split_csv(
+        client.authorized_grant_types
+    ):
         raise HTTPException(status_code=400, detail="OAuth2 response type is invalid")
     if code_challenge_method != "S256" or not 43 <= len(code_challenge) <= 128:
         raise HTTPException(status_code=400, detail="OAuth2 PKCE challenge is invalid")
     scopes = validate_requested_scopes(client, scope)
     if not approved:
-        return {"client_name": client.name, "scope": scopes, "status": "approval_required"}
+        return {
+            "client_name": client.name,
+            "scope": scopes,
+            "status": "approval_required",
+        }
 
     authorization_code = token_urlsafe(32)
     session.add(
@@ -133,7 +151,9 @@ def authorize_oauth2(
     if state:
         query["state"] = state
     separator = "&" if urlparse(redirect_uri).query else "?"
-    return RedirectResponse(url=f"{redirect_uri}{separator}{urlencode(query)}", status_code=302)
+    return RedirectResponse(
+        url=f"{redirect_uri}{separator}{urlencode(query)}", status_code=302
+    )
 
 
 @router.post("/token")
@@ -151,20 +171,33 @@ def exchange_oauth2_token(
         session=session, client_id=client_id, client_secret=client_secret
     )
     if grant_type == "refresh_token":
-        if not refresh_token or "refresh_token" not in split_csv(client.authorized_grant_types):
-            raise HTTPException(status_code=400, detail="OAuth2 token request is invalid")
+        if not refresh_token or "refresh_token" not in split_csv(
+            client.authorized_grant_types
+        ):
+            raise HTTPException(
+                status_code=400, detail="OAuth2 token request is invalid"
+            )
         token = session.exec(
             select(OAuth2AccessToken).where(
-                OAuth2AccessToken.refresh_token_hash == hash_oauth2_value(refresh_token),
+                OAuth2AccessToken.refresh_token_hash
+                == hash_oauth2_value(refresh_token),
                 OAuth2AccessToken.client_id == client.client_id,
             )
         ).first()
-        if not token or not token.refresh_expires_at or token.refresh_expires_at <= get_datetime_utc():
-            raise HTTPException(status_code=400, detail="OAuth2 refresh token is invalid")
+        if (
+            not token
+            or not token.refresh_expires_at
+            or token.refresh_expires_at <= get_datetime_utc()
+        ):
+            raise HTTPException(
+                status_code=400, detail="OAuth2 refresh token is invalid"
+            )
         if token.revoked_at is not None:
             revoke_token_family(session, token.token_family_id)
             session.commit()
-            raise HTTPException(status_code=400, detail="OAuth2 refresh token is invalid")
+            raise HTTPException(
+                status_code=400, detail="OAuth2 refresh token is invalid"
+            )
         access_token = token_urlsafe(32)
         next_refresh_token = token_urlsafe(32)
         now = get_datetime_utc()
@@ -180,14 +213,27 @@ def exchange_oauth2_token(
                 user_full_name=token.user_full_name,
                 client_id=token.client_id,
                 scopes=token.scopes,
-                expires_at=now + timedelta(seconds=client.access_token_validity_seconds),
-                refresh_expires_at=now + timedelta(seconds=client.refresh_token_validity_seconds),
+                expires_at=now
+                + timedelta(seconds=client.access_token_validity_seconds),
+                refresh_expires_at=now
+                + timedelta(seconds=client.refresh_token_validity_seconds),
             )
         )
         session.commit()
-        return {"access_token": access_token, "refresh_token": next_refresh_token, "token_type": "Bearer", "expires_in": client.access_token_validity_seconds, "scope": token.scopes or ""}
+        return {
+            "access_token": access_token,
+            "refresh_token": next_refresh_token,
+            "token_type": "Bearer",
+            "expires_in": client.access_token_validity_seconds,
+            "scope": token.scopes or "",
+        }
 
-    if grant_type != "authorization_code" or not code or not redirect_uri or not code_verifier:
+    if (
+        grant_type != "authorization_code"
+        or not code
+        or not redirect_uri
+        or not code_verifier
+    ):
         raise HTTPException(status_code=400, detail="OAuth2 token request is invalid")
     authorization_code = session.exec(
         select(OAuth2AuthorizationCode).where(
@@ -201,29 +247,47 @@ def exchange_oauth2_token(
         or authorization_code.client_id != client.client_id
         or authorization_code.redirect_uri != redirect_uri
     ):
-        raise HTTPException(status_code=400, detail="OAuth2 authorization code is invalid")
-    expected_challenge = urlsafe_b64encode(sha256(code_verifier.encode()).digest()).decode().rstrip("=")
+        raise HTTPException(
+            status_code=400, detail="OAuth2 authorization code is invalid"
+        )
+    expected_challenge = (
+        urlsafe_b64encode(sha256(code_verifier.encode()).digest()).decode().rstrip("=")
+    )
     if expected_challenge != authorization_code.code_challenge:
         raise HTTPException(status_code=400, detail="OAuth2 PKCE verification failed")
     user = session.get(User, authorization_code.user_id)
     if not user or not user.is_active:
-        raise HTTPException(status_code=400, detail="OAuth2 authorization user is invalid")
+        raise HTTPException(
+            status_code=400, detail="OAuth2 authorization user is invalid"
+        )
     access_token = token_urlsafe(32)
     refresh_token = token_urlsafe(32)
     now = get_datetime_utc()
     authorization_code.used_at = now
     session.add(authorization_code)
-    session.add(OAuth2AccessToken(
-        access_token_hash=hash_oauth2_value(access_token),
-        refresh_token_hash=hash_oauth2_value(refresh_token),
-        token_family_id=uuid.uuid4(), user_id=user.id, user_email=user.email,
-        user_full_name=user.full_name, client_id=client.client_id,
-        scopes=authorization_code.scopes,
-        expires_at=now + timedelta(seconds=client.access_token_validity_seconds),
-        refresh_expires_at=now + timedelta(seconds=client.refresh_token_validity_seconds),
-    ))
+    session.add(
+        OAuth2AccessToken(
+            access_token_hash=hash_oauth2_value(access_token),
+            refresh_token_hash=hash_oauth2_value(refresh_token),
+            token_family_id=uuid.uuid4(),
+            user_id=user.id,
+            user_email=user.email,
+            user_full_name=user.full_name,
+            client_id=client.client_id,
+            scopes=authorization_code.scopes,
+            expires_at=now + timedelta(seconds=client.access_token_validity_seconds),
+            refresh_expires_at=now
+            + timedelta(seconds=client.refresh_token_validity_seconds),
+        )
+    )
     session.commit()
-    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "Bearer", "expires_in": client.access_token_validity_seconds, "scope": authorization_code.scopes or ""}
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "Bearer",
+        "expires_in": client.access_token_validity_seconds,
+        "scope": authorization_code.scopes or "",
+    }
 
 
 @router.post("/revoke", status_code=204)

@@ -1,4 +1,8 @@
+import hashlib
+import hmac
 import random
+import re
+import secrets
 import uuid
 from datetime import timedelta
 from typing import Annotated, Any
@@ -7,14 +11,17 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import delete, select
 
 from app import crud
 from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
+from app.api.routes.sms import create_sms_log, get_template_channel
 from app.audit import create_login_log, get_client_ip, get_user_agent
 from app.core import security
 from app.core.cache import CacheNamespace, redis_cache
 from app.core.config import settings
+from app.core.db import provision_tenant_roles
 from app.core.enterprise_oidc import (
     OIDC_PROVIDER,
     build_pkce_challenge,
@@ -27,6 +34,7 @@ from app.core.enterprise_oidc import (
     validate_identity_token,
 )
 from app.core.mfa import consume_recovery_code, decrypt_totp_secret, verify_totp_code
+from app.core.tenancy import DEFAULT_TENANT_CODE, get_active_tenant_membership
 from app.models import (
     EnterpriseOidcAuthorizationState,
     EnterpriseOidcIdentity,
@@ -36,7 +44,18 @@ from app.models import (
     LoginCaptchaChallenge,
     Message,
     NewPassword,
+    RegistrationStatus,
     Role,
+    SmsCodeRequest,
+    SmsCodeSent,
+    SmsLoginRequest,
+    SmsTemplate,
+    SystemSetting,
+    Tenant,
+    TenantInitializationTemplate,
+    TenantMembership,
+    TenantPlan,
+    TenantRegistrationRequest,
     Token,
     User,
     UserPublic,
@@ -60,15 +79,115 @@ LOGIN_CAPTCHA_INVALID_MESSAGE = "Captcha is invalid or expired."
 LOGIN_MFA_REQUIRED_MESSAGE = "MFA verification required."
 LOGIN_MFA_INVALID_MESSAGE = "MFA verification code is invalid."
 LOGIN_MFA_SETUP_INVALID_MESSAGE = "MFA setup is invalid. Please restart MFA setup."
+SMS_CODE_INVALID_MESSAGE = "SMS verification code is invalid or expired."
+SMS_VERIFICATION_UNAVAILABLE_MESSAGE = "SMS verification is unavailable."
+SMS_LOGIN_INVALID_MESSAGE = "Incorrect mobile or verification code"
+MOBILE_PATTERN = re.compile(r"^1[3-9]\d{9}$")
+TENANT_CODE_PATTERN = re.compile(r"^[a-z][a-z0-9-]{2,31}$")
 
 
 def normalize_login_identifier(username: str) -> str:
     return username.strip().lower()
 
 
+def normalize_mobile(mobile: str) -> str:
+    normalized = re.sub(r"[\s-]", "", mobile)
+    if normalized.startswith("+86"):
+        normalized = normalized[3:]
+    if not MOBILE_PATTERN.fullmatch(normalized):
+        raise HTTPException(status_code=400, detail="Invalid mobile number")
+    return normalized
+
+
+def get_login_tenant(*, session: SessionDep, tenant_code: str) -> Tenant:
+    tenant = session.exec(
+        select(Tenant).where(
+            Tenant.code == tenant_code.strip().lower(),
+            Tenant.is_active,
+        )
+    ).first()
+    if tenant is None:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    return tenant
+
+
+def get_sms_verification_keys(
+    *, tenant_id: uuid.UUID, mobile: str, scene: str
+) -> tuple[str, str, str]:
+    prefix = (CacheNamespace.SMS_VERIFICATION, tenant_id, scene, mobile)
+    return (
+        redis_cache.build_key(*prefix, "code"),
+        redis_cache.build_key(*prefix, "attempts"),
+        redis_cache.build_key(*prefix, "cooldown"),
+    )
+
+
+def hash_sms_code(
+    *, tenant_id: uuid.UUID, mobile: str, scene: str, code: str
+) -> str:
+    payload = f"{tenant_id}:{scene}:{mobile}:{code}".encode()
+    return hmac.new(settings.SECRET_KEY.encode(), payload, hashlib.sha256).hexdigest()
+
+
+def validate_sms_verification_code(
+    *,
+    tenant_id: uuid.UUID,
+    mobile: str,
+    scene: str,
+    code: str,
+) -> tuple[str, str]:
+    code_key, attempts_key, _ = get_sms_verification_keys(
+        tenant_id=tenant_id,
+        mobile=mobile,
+        scene=scene,
+    )
+    expected_hash = redis_cache.get(code_key)
+    submitted_hash = hash_sms_code(
+        tenant_id=tenant_id,
+        mobile=mobile,
+        scene=scene,
+        code=code,
+    )
+    if expected_hash is not None and hmac.compare_digest(
+        expected_hash,
+        submitted_hash,
+    ):
+        return code_key, attempts_key
+
+    attempts = redis_cache.incr(
+        attempts_key,
+        ttl_seconds=settings.SMS_CODE_TTL_SECONDS,
+    )
+    if attempts is None:
+        raise HTTPException(
+            status_code=503,
+            detail=SMS_VERIFICATION_UNAVAILABLE_MESSAGE,
+        )
+    if attempts >= settings.SMS_CODE_MAX_ATTEMPTS:
+        redis_cache.delete(code_key, attempts_key)
+    raise HTTPException(status_code=400, detail=SMS_CODE_INVALID_MESSAGE)
+
+
+def is_public_registration_enabled(*, session: SessionDep) -> bool:
+    platform_tenant = session.exec(
+        select(Tenant).where(Tenant.code == DEFAULT_TENANT_CODE)
+    ).first()
+    if platform_tenant is None:
+        return False
+    setting = session.exec(
+        select(SystemSetting).where(
+            SystemSetting.tenant_id == platform_tenant.id,
+            SystemSetting.key == "auth.allow_register",
+            SystemSetting.is_public,
+        )
+    ).first()
+    return setting is not None and setting.value.strip().lower() == "true"
+
+
 class LoginFormData(BaseModel):
     username: str
     password: str
+    tenant_code: str | None = None
     captcha_code: str | None = None
     captcha_id: str | None = None
     mfa_code: str | None = None
@@ -77,6 +196,7 @@ class LoginFormData(BaseModel):
 def get_login_form_data(
     username: Annotated[str, Form(...)],
     password: Annotated[str, Form(...)],
+    tenant_code: Annotated[str | None, Form()] = None,
     captcha_code: Annotated[str | None, Form()] = None,
     captcha_id: Annotated[str | None, Form()] = None,
     mfa_code: Annotated[str | None, Form()] = None,
@@ -84,6 +204,7 @@ def get_login_form_data(
     return LoginFormData(
         username=username,
         password=password,
+        tenant_code=tenant_code,
         captcha_code=captcha_code,
         captcha_id=captcha_id,
         mfa_code=mfa_code,
@@ -216,12 +337,27 @@ def clear_failed_login_attempts(request: Request, username: str) -> None:
     redis_cache.delete(attempt_key, block_key)
 
 
-def create_login_token(*, session: SessionDep, request: Request, user: User) -> Token:
+def create_login_token(
+    *,
+    session: SessionDep,
+    request: Request,
+    user: User,
+    tenant_id: uuid.UUID | None = None,
+) -> Token:
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     token_id = str(uuid.uuid4())
+    tenant_membership = get_active_tenant_membership(
+        session=session,
+        user_id=user.id,
+        tenant_id=tenant_id,
+    )
+    if tenant_membership is None:
+        raise HTTPException(status_code=403, detail="User has no active tenant")
+    _, tenant = tenant_membership
     session.add(
         UserSession(
             user_id=user.id,
+            tenant_id=tenant.id,
             token_jti=token_id,
             ip=get_client_ip(request),
             user_agent=get_user_agent(request),
@@ -234,8 +370,320 @@ def create_login_token(*, session: SessionDep, request: Request, user: User) -> 
             user.id,
             expires_delta=access_token_expires,
             token_id=token_id,
-        )
+            tenant_id=tenant.id,
+        ),
+        tenant_id=tenant.id,
     )
+
+
+@router.post("/login/sms-code", response_model=SmsCodeSent)
+def send_login_sms_code(
+    *,
+    request: Request,
+    session: SessionDep,
+    body: SmsCodeRequest,
+) -> SmsCodeSent:
+    if not redis_cache.is_enabled():
+        raise HTTPException(
+            status_code=503,
+            detail=SMS_VERIFICATION_UNAVAILABLE_MESSAGE,
+        )
+
+    tenant = get_login_tenant(session=session, tenant_code=body.tenant_code)
+    mobile = normalize_mobile(body.mobile)
+    code_key, attempts_key, cooldown_key = get_sms_verification_keys(
+        tenant_id=tenant.id,
+        mobile=mobile,
+        scene=body.scene,
+    )
+    if redis_cache.get(cooldown_key):
+        raise HTTPException(
+            status_code=429,
+            detail="SMS verification code was sent recently.",
+        )
+
+    client_ip = get_client_ip(request) or "unknown"
+    ip_limit_key = redis_cache.build_key(
+        CacheNamespace.SMS_VERIFICATION,
+        "send-ip",
+        client_ip,
+    )
+    ip_send_count = redis_cache.incr(
+        ip_limit_key,
+        ttl_seconds=settings.SMS_CODE_TTL_SECONDS,
+    )
+    if ip_send_count is None:
+        raise HTTPException(
+            status_code=503,
+            detail=SMS_VERIFICATION_UNAVAILABLE_MESSAGE,
+        )
+    if ip_send_count > settings.SMS_CODE_SEND_MAX_PER_IP:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many SMS verification requests.",
+        )
+
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    code_hash = hash_sms_code(
+        tenant_id=tenant.id,
+        mobile=mobile,
+        scene=body.scene,
+        code=code,
+    )
+    code_saved = redis_cache.set(
+        code_key,
+        code_hash,
+        ttl_seconds=settings.SMS_CODE_TTL_SECONDS,
+    )
+    cooldown_saved = redis_cache.set(
+        cooldown_key,
+        "1",
+        ttl_seconds=settings.SMS_CODE_RESEND_SECONDS,
+    )
+    if not code_saved or not cooldown_saved:
+        redis_cache.delete(code_key, attempts_key, cooldown_key)
+        raise HTTPException(
+            status_code=503,
+            detail=SMS_VERIFICATION_UNAVAILABLE_MESSAGE,
+        )
+
+    template = session.exec(
+        select(SmsTemplate).where(
+            SmsTemplate.tenant_id == tenant.id,
+            SmsTemplate.code == "verify_code",
+            SmsTemplate.is_active,
+        )
+    ).first()
+    if template is None:
+        redis_cache.delete(code_key, attempts_key, cooldown_key)
+        raise HTTPException(
+            status_code=503,
+            detail=SMS_VERIFICATION_UNAVAILABLE_MESSAGE,
+        )
+    channel = get_template_channel(session=session, template=template)
+    content = template.content.replace("{code}", code)
+    if channel is None or not channel.is_active:
+        create_sms_log(
+            session=session,
+            channel=channel,
+            template=template,
+            mobile=mobile,
+            content=content,
+            params={"code": code},
+            status="failed",
+            code="CHANNEL_UNAVAILABLE",
+            message="No active SMS channel is available.",
+        )
+        redis_cache.delete(code_key, attempts_key, cooldown_key)
+        raise HTTPException(
+            status_code=503,
+            detail=SMS_VERIFICATION_UNAVAILABLE_MESSAGE,
+        )
+    if channel.provider != "debug":
+        create_sms_log(
+            session=session,
+            channel=channel,
+            template=template,
+            mobile=mobile,
+            content=content,
+            params={"code": code},
+            status="failed",
+            code="PROVIDER_NOT_CONNECTED",
+            message=f"{channel.provider} delivery is not connected.",
+        )
+        redis_cache.delete(code_key, attempts_key, cooldown_key)
+        raise HTTPException(
+            status_code=503,
+            detail=SMS_VERIFICATION_UNAVAILABLE_MESSAGE,
+        )
+
+    create_sms_log(
+        session=session,
+        channel=channel,
+        template=template,
+        mobile=mobile,
+        content=content,
+        params={"code": code},
+        status="success",
+        code="DEBUG_ACCEPTED",
+        message="Debug channel accepted the SMS.",
+    )
+    return SmsCodeSent(
+        message="SMS verification code sent",
+        retry_after_seconds=settings.SMS_CODE_RESEND_SECONDS,
+        debug_code=code if settings.ENVIRONMENT == "local" else None,
+    )
+
+
+@router.post("/login/sms", response_model=Token)
+def login_with_sms_code(
+    *,
+    request: Request,
+    session: SessionDep,
+    body: SmsLoginRequest,
+) -> Token:
+    if not redis_cache.is_enabled():
+        raise HTTPException(
+            status_code=503,
+            detail=SMS_VERIFICATION_UNAVAILABLE_MESSAGE,
+        )
+
+    tenant = get_login_tenant(session=session, tenant_code=body.tenant_code)
+    mobile = normalize_mobile(body.mobile)
+    code_key, attempts_key = validate_sms_verification_code(
+        tenant_id=tenant.id,
+        mobile=mobile,
+        scene="login",
+        code=body.code,
+    )
+
+    user = session.exec(select(User).where(User.mobile == mobile)).first()
+    tenant_membership = (
+        get_active_tenant_membership(
+            session=session,
+            user_id=user.id,
+            tenant_id=tenant.id,
+        )
+        if user is not None
+        else None
+    )
+    if user is None or not user.is_active or tenant_membership is None:
+        redis_cache.delete(code_key, attempts_key)
+        raise HTTPException(status_code=401, detail=SMS_LOGIN_INVALID_MESSAGE)
+
+    redis_cache.delete(code_key, attempts_key)
+    token = create_login_token(
+        session=session,
+        request=request,
+        user=user,
+        tenant_id=tenant.id,
+    )
+    create_login_log(
+        session=session,
+        request=request,
+        email=user.email,
+        status="success",
+        user=user,
+        tenant_id=token.tenant_id,
+    )
+    return token
+
+
+@router.get("/login/registration/status", response_model=RegistrationStatus)
+def read_registration_status(session: SessionDep) -> RegistrationStatus:
+    return RegistrationStatus(enabled=is_public_registration_enabled(session=session))
+
+
+@router.post("/login/register-tenant", response_model=Token)
+def register_tenant(
+    *,
+    request: Request,
+    session: SessionDep,
+    body: TenantRegistrationRequest,
+) -> Token:
+    if not is_public_registration_enabled(session=session):
+        raise HTTPException(status_code=403, detail="Public registration is disabled")
+    if not redis_cache.is_enabled():
+        raise HTTPException(
+            status_code=503,
+            detail=SMS_VERIFICATION_UNAVAILABLE_MESSAGE,
+        )
+
+    tenant_code = body.tenant_code.strip().lower()
+    if not TENANT_CODE_PATTERN.fullmatch(tenant_code):
+        raise HTTPException(status_code=400, detail="Invalid tenant code")
+    mobile = normalize_mobile(body.mobile)
+    platform_tenant = get_login_tenant(
+        session=session,
+        tenant_code=DEFAULT_TENANT_CODE,
+    )
+    code_key, attempts_key = validate_sms_verification_code(
+        tenant_id=platform_tenant.id,
+        mobile=mobile,
+        scene="register",
+        code=body.sms_code,
+    )
+
+    email = body.email.strip().lower()
+    if session.exec(select(Tenant).where(Tenant.code == tenant_code)).first():
+        raise HTTPException(status_code=409, detail="Tenant code already exists")
+    if crud.get_user_by_email(session=session, email=email):
+        raise HTTPException(status_code=409, detail="Email already exists")
+    if session.exec(select(User).where(User.mobile == mobile)).first():
+        raise HTTPException(status_code=409, detail="Mobile already exists")
+
+    plan = session.exec(
+        select(TenantPlan).where(TenantPlan.is_default, TenantPlan.is_active)
+    ).first()
+    template = session.exec(
+        select(TenantInitializationTemplate).where(
+            TenantInitializationTemplate.is_default,
+            TenantInitializationTemplate.is_active,
+        )
+    ).first()
+    if plan is None or template is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Tenant registration is not configured",
+        )
+
+    owner = User(
+        email=email,
+        mobile=mobile,
+        full_name=body.full_name.strip(),
+        hashed_password=security.get_password_hash(body.password),
+        is_active=True,
+        is_superuser=False,
+    )
+    tenant = Tenant(
+        code=tenant_code,
+        name=body.tenant_name.strip(),
+        plan_id=plan.id,
+        initialization_template_id=template.id,
+        is_active=True,
+    )
+    try:
+        session.add(owner)
+        session.add(tenant)
+        session.flush()
+        provision_tenant_roles(
+            session=session,
+            tenant=tenant,
+            template=template,
+            owner=owner,
+        )
+        membership = session.exec(
+            select(TenantMembership).where(
+                TenantMembership.user_id == owner.id,
+                TenantMembership.tenant_id == tenant.id,
+            )
+        ).one()
+        membership.is_default = True
+        session.add(membership)
+        session.commit()
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Tenant registration conflicts with existing data",
+        ) from exc
+
+    redis_cache.delete(code_key, attempts_key)
+    token = create_login_token(
+        session=session,
+        request=request,
+        user=owner,
+        tenant_id=tenant.id,
+    )
+    create_login_log(
+        session=session,
+        request=request,
+        email=owner.email,
+        status="success",
+        user=owner,
+        tenant_id=tenant.id,
+    )
+    return token
 
 
 def consume_enterprise_oidc_state(
@@ -298,18 +746,45 @@ def resolve_enterprise_oidc_user(
             detail="Enterprise OIDC identity is not linked to an active local user",
         )
 
+    tenant_membership = get_active_tenant_membership(
+        session=session,
+        user_id=user.id,
+    )
+    if tenant_membership is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Enterprise OIDC identity is not linked to an active local user",
+        )
+    _, tenant = tenant_membership
+
     role_codes = role_codes_from_claims(claims)
     roles: list[Role] = []
     if settings.ENTERPRISE_OIDC_ROLE_SYNC_MODE == "replace" and not user.is_superuser:
         if role_codes:
-            roles = session.exec(select(Role).where(Role.code.in_(role_codes))).all()
+            roles = session.exec(
+                select(Role).where(
+                    Role.tenant_id == tenant.id,
+                    Role.code.in_(role_codes),
+                )
+            ).all()
             if len(roles) != len(role_codes):
                 raise HTTPException(
                     status_code=503, detail="Enterprise OIDC is not configured"
                 )
-        session.exec(delete(UserRole).where(UserRole.user_id == user.id))
+        session.exec(
+            delete(UserRole).where(
+                UserRole.user_id == user.id,
+                UserRole.tenant_id == tenant.id,
+            )
+        )
         for role in roles:
-            session.add(UserRole(user_id=user.id, role_id=role.id))
+            session.add(
+                UserRole(
+                    user_id=user.id,
+                    role_id=role.id,
+                    tenant_id=tenant.id,
+                )
+            )
         redis_cache.bump_namespace(CacheNamespace.RBAC)
 
     if settings.ENTERPRISE_OIDC_SYNC_ACTIVE_STATUS:
@@ -487,15 +962,32 @@ def login_access_token(
                 raise HTTPException(status_code=429, detail=LOGIN_RATE_LIMIT_MESSAGE)
             raise HTTPException(status_code=400, detail=LOGIN_MFA_INVALID_MESSAGE)
 
+    tenant_id: uuid.UUID | None = None
+    if form_data.tenant_code:
+        tenant_code = form_data.tenant_code.strip().lower()
+        tenant = session.exec(
+            select(Tenant).where(Tenant.code == tenant_code, Tenant.is_active)
+        ).first()
+        if tenant is None:
+            raise HTTPException(status_code=403, detail="User has no active tenant")
+        tenant_id = tenant.id
+
     clear_failed_login_attempts(request, login_identifier)
+    token = create_login_token(
+        session=session,
+        request=request,
+        user=user,
+        tenant_id=tenant_id,
+    )
     create_login_log(
         session=session,
         request=request,
         email=login_identifier,
         status="success",
         user=user,
+        tenant_id=token.tenant_id,
     )
-    return create_login_token(session=session, request=request, user=user)
+    return token
 
 
 @router.get("/login/enterprise-oidc/status", response_model=EnterpriseOidcStatus)
@@ -595,7 +1087,9 @@ def complete_enterprise_oidc_login(
         create_login_log(
             session=session,
             request=request,
-            email=claimed_email if isinstance(claimed_email, str) else "enterprise-oidc",
+            email=claimed_email
+            if isinstance(claimed_email, str)
+            else "enterprise-oidc",
             status="fail",
             failure_reason=str(exc.detail),
         )
@@ -656,14 +1150,16 @@ def exchange_enterprise_oidc_ticket(
             status_code=403,
             detail="Enterprise OIDC identity is not linked to an active local user",
         )
+    token = create_login_token(session=session, request=request, user=user)
     create_login_log(
         session=session,
         request=request,
         email=user.email,
         status="success",
         user=user,
+        tenant_id=token.tenant_id,
     )
-    return create_login_token(session=session, request=request, user=user)
+    return token
 
 
 @router.post("/login/test-token", response_model=UserPublic)

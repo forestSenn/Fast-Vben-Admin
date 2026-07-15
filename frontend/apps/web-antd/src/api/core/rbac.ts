@@ -65,7 +65,7 @@ export function updateRoleApi(roleId: string, data: RoleUpdatePayload) {
 }
 
 export function deleteRoleApi(roleId: string) {
-  return requestClient.delete<void>(`/roles/${roleId}`);
+  return requestClient.delete(`/roles/${roleId}`);
 }
 
 export function getRoleMenusApi(roleId: string) {
@@ -103,7 +103,7 @@ export function updateMenuApi(menuId: string, data: MenuUpdatePayload) {
 }
 
 export function deleteMenuApi(menuId: string) {
-  return requestClient.delete<void>(`/menus/${menuId}`);
+  return requestClient.delete(`/menus/${menuId}`);
 }
 
 export function listDepartmentsApi(params: ListParams = {}) {
@@ -128,7 +128,7 @@ export function updateDepartmentApi(
 }
 
 export function deleteDepartmentApi(departmentId: string) {
-  return requestClient.delete<void>(`/departments/${departmentId}`);
+  return requestClient.delete(`/departments/${departmentId}`);
 }
 
 export function listPostsApi(params: ListParams = {}) {
@@ -147,7 +147,7 @@ export function updatePostApi(postId: string, data: PostUpdatePayload) {
 }
 
 export function deletePostApi(postId: string) {
-  return requestClient.delete<void>(`/posts/${postId}`);
+  return requestClient.delete(`/posts/${postId}`);
 }
 
 export function getUserRolesApi(userId: string) {

@@ -1,19 +1,32 @@
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
+import jwt
 import pyotp
 from fastapi.testclient import TestClient
 from pwdlib.hashers.bcrypt import BcryptHasher
-from sqlmodel import Session, select
+from sqlmodel import Session, delete, select
 
 from app.api.routes import login as login_route
 from app.api.routes.login import get_login_captcha_key
+from app.core import security
 from app.core.cache import redis_cache
 from app.core.config import settings
 from app.core.mfa import encrypt_totp_secret, serialize_recovery_codes
 from app.core.security import get_password_hash, verify_password
+from app.core.tenancy import DEFAULT_TENANT_CODE, add_user_to_default_tenant
 from app.crud import create_user
-from app.models import EnterpriseOidcIdentity, Role, User, UserCreate, UserRole
+from app.models import (
+    EnterpriseOidcIdentity,
+    Role,
+    SystemSetting,
+    Tenant,
+    TenantMembership,
+    User,
+    UserCreate,
+    UserRole,
+    UserSession,
+)
 from app.utils import generate_password_reset_token
 from tests.utils.user import user_authentication_headers
 from tests.utils.utils import random_email, random_lower_string
@@ -23,12 +36,301 @@ def test_get_access_token(client: TestClient) -> None:
     login_data = {
         "username": settings.FIRST_SUPERUSER,
         "password": settings.FIRST_SUPERUSER_PASSWORD,
+        "tenant_code": DEFAULT_TENANT_CODE,
     }
     r = client.post(f"{settings.API_V1_STR}/login/access-token", data=login_data)
     tokens = r.json()
     assert r.status_code == 200
     assert "access_token" in tokens
     assert tokens["access_token"]
+
+
+def test_login_rejects_unknown_tenant_code(client: TestClient) -> None:
+    response = client.post(
+        f"{settings.API_V1_STR}/login/access-token",
+        data={
+            "username": settings.FIRST_SUPERUSER,
+            "password": settings.FIRST_SUPERUSER_PASSWORD,
+            "tenant_code": "tenant-that-does-not-exist",
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "TENANT_MEMBERSHIP_REQUIRED"
+
+
+def test_sms_code_login_is_one_time(
+    client: TestClient,
+    db: Session,
+    monkeypatch,
+) -> None:
+    key_store: dict[str, str] = {}
+    counters: dict[str, int] = {}
+    mobile = "13612345678"
+    user = create_user(
+        session=db,
+        user_create=UserCreate(
+            email=random_email(),
+            mobile=mobile,
+            password=random_lower_string(),
+        ),
+    )
+
+    def fake_set(
+        key: str,
+        value: str,
+        *,
+        ttl_seconds: int | None = None,
+    ) -> bool:
+        _ = ttl_seconds
+        key_store[key] = value
+        return True
+
+    def fake_incr(key: str, *, ttl_seconds: int | None = None) -> int:
+        _ = ttl_seconds
+        counters[key] = counters.get(key, 0) + 1
+        return counters[key]
+
+    def fake_delete(*keys: str) -> None:
+        for key in keys:
+            key_store.pop(key, None)
+            counters.pop(key, None)
+
+    monkeypatch.setattr(redis_cache, "is_enabled", lambda: True)
+    monkeypatch.setattr(redis_cache, "get", lambda key: key_store.get(key))
+    monkeypatch.setattr(redis_cache, "set", fake_set)
+    monkeypatch.setattr(redis_cache, "incr", fake_incr)
+    monkeypatch.setattr(redis_cache, "delete", fake_delete)
+    monkeypatch.setattr("app.api.routes.login.secrets.randbelow", lambda limit: 123456)
+
+    sent = client.post(
+        f"{settings.API_V1_STR}/login/sms-code",
+        json={
+            "tenant_code": DEFAULT_TENANT_CODE,
+            "mobile": mobile,
+            "scene": "login",
+        },
+    )
+    assert sent.status_code == 200
+    assert sent.json()["debug_code"] == "123456"
+
+    logged_in = client.post(
+        f"{settings.API_V1_STR}/login/sms",
+        json={
+            "tenant_code": DEFAULT_TENANT_CODE,
+            "mobile": mobile,
+            "code": "123456",
+        },
+    )
+    assert logged_in.status_code == 200
+    assert logged_in.json()["access_token"]
+
+    reused = client.post(
+        f"{settings.API_V1_STR}/login/sms",
+        json={
+            "tenant_code": DEFAULT_TENANT_CODE,
+            "mobile": mobile,
+            "code": "123456",
+        },
+    )
+    assert reused.status_code == 400
+    assert reused.json()["code"] == "AUTH_SMS_CODE_INVALID"
+
+    db.delete(user)
+    db.commit()
+
+
+def test_sms_login_invalidates_code_after_max_attempts(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    key_store: dict[str, str] = {}
+    counters: dict[str, int] = {}
+
+    def fake_incr(key: str, *, ttl_seconds: int | None = None) -> int:
+        _ = ttl_seconds
+        counters[key] = counters.get(key, 0) + 1
+        return counters[key]
+
+    def fake_delete(*keys: str) -> None:
+        for key in keys:
+            key_store.pop(key, None)
+            counters.pop(key, None)
+
+    monkeypatch.setattr(settings, "SMS_CODE_MAX_ATTEMPTS", 2)
+    monkeypatch.setattr(redis_cache, "is_enabled", lambda: True)
+    monkeypatch.setattr(redis_cache, "get", lambda key: key_store.get(key))
+    monkeypatch.setattr(redis_cache, "incr", fake_incr)
+    monkeypatch.setattr(redis_cache, "delete", fake_delete)
+
+    payload = {
+        "tenant_code": DEFAULT_TENANT_CODE,
+        "mobile": "13900139000",
+        "code": "000000",
+    }
+    first = client.post(f"{settings.API_V1_STR}/login/sms", json=payload)
+    second = client.post(f"{settings.API_V1_STR}/login/sms", json=payload)
+
+    assert first.status_code == 400
+    assert second.status_code == 400
+    assert any(count == 2 for count in counters.values()) is False
+
+
+def test_sms_code_requires_redis(client: TestClient, monkeypatch) -> None:
+    monkeypatch.setattr(redis_cache, "is_enabled", lambda: False)
+
+    response = client.post(
+        f"{settings.API_V1_STR}/login/sms-code",
+        json={
+            "tenant_code": DEFAULT_TENANT_CODE,
+            "mobile": "13700137000",
+            "scene": "login",
+        },
+    )
+
+    assert response.status_code == 503
+    assert response.json()["code"] == "AUTH_SMS_UNAVAILABLE"
+
+
+def test_public_tenant_registration_creates_owner_and_token(
+    client: TestClient,
+    db: Session,
+    monkeypatch,
+) -> None:
+    key_store: dict[str, str] = {}
+    counters: dict[str, int] = {}
+    mobile = "13512345678"
+    tenant_code = f"test-{random_lower_string()[:8]}"
+    email = random_email()
+    setting = db.exec(
+        select(SystemSetting).where(
+            SystemSetting.key == "auth.allow_register",
+            SystemSetting.tenant_id
+            == login_route.get_login_tenant(
+                session=db,
+                tenant_code=DEFAULT_TENANT_CODE,
+            ).id,
+        )
+    ).one()
+    original_setting_value = setting.value
+    setting.value = "true"
+    db.add(setting)
+    db.commit()
+
+    def fake_set(
+        key: str,
+        value: str,
+        *,
+        ttl_seconds: int | None = None,
+    ) -> bool:
+        _ = ttl_seconds
+        key_store[key] = value
+        return True
+
+    def fake_incr(key: str, *, ttl_seconds: int | None = None) -> int:
+        _ = ttl_seconds
+        counters[key] = counters.get(key, 0) + 1
+        return counters[key]
+
+    def fake_delete(*keys: str) -> None:
+        for key in keys:
+            key_store.pop(key, None)
+            counters.pop(key, None)
+
+    monkeypatch.setattr(redis_cache, "is_enabled", lambda: True)
+    monkeypatch.setattr(redis_cache, "get", lambda key: key_store.get(key))
+    monkeypatch.setattr(redis_cache, "set", fake_set)
+    monkeypatch.setattr(redis_cache, "incr", fake_incr)
+    monkeypatch.setattr(redis_cache, "delete", fake_delete)
+    monkeypatch.setattr("app.api.routes.login.secrets.randbelow", lambda limit: 654321)
+
+    tenant: Tenant | None = None
+    owner: User | None = None
+    try:
+        status = client.get(f"{settings.API_V1_STR}/login/registration/status")
+        assert status.status_code == 200
+        assert status.json()["enabled"] is True
+
+        sent = client.post(
+            f"{settings.API_V1_STR}/login/sms-code",
+            json={
+                "tenant_code": DEFAULT_TENANT_CODE,
+                "mobile": mobile,
+                "scene": "register",
+            },
+        )
+        assert sent.status_code == 200
+        assert sent.json()["debug_code"] == "654321"
+
+        registered = client.post(
+            f"{settings.API_V1_STR}/login/register-tenant",
+            json={
+                "tenant_code": tenant_code,
+                "tenant_name": "测试注册租户",
+                "email": email,
+                "mobile": mobile,
+                "full_name": "租户管理员",
+                "password": "SecurePass123!",
+                "sms_code": "654321",
+            },
+        )
+        assert registered.status_code == 200
+        token = registered.json()
+        assert token["access_token"]
+
+        tenant = db.exec(select(Tenant).where(Tenant.code == tenant_code)).one()
+        owner = db.exec(select(User).where(User.email == email)).one()
+        membership = db.exec(
+            select(TenantMembership).where(
+                TenantMembership.tenant_id == tenant.id,
+                TenantMembership.user_id == owner.id,
+            )
+        ).one()
+        assert membership.is_default is True
+        assert token["tenant_id"] == str(tenant.id)
+    finally:
+        if tenant is not None:
+            db.exec(delete(UserSession).where(UserSession.tenant_id == tenant.id))
+            db.commit()
+            db.delete(tenant)
+            db.commit()
+        if owner is not None:
+            db.delete(owner)
+            db.commit()
+        setting.value = original_setting_value
+        db.add(setting)
+        db.commit()
+
+
+def test_login_token_and_session_share_tenant(
+    client: TestClient,
+    db: Session,
+) -> None:
+    email = random_email()
+    password = random_lower_string()
+    user = create_user(
+        session=db,
+        user_create=UserCreate(email=email, password=password),
+    )
+    response = client.post(
+        f"{settings.API_V1_STR}/login/access-token",
+        data={"username": email, "password": password},
+    )
+    assert response.status_code == 200
+    token = response.json()
+    payload = jwt.decode(
+        token["access_token"],
+        settings.SECRET_KEY,
+        algorithms=[security.ALGORITHM],
+    )
+    user_session = db.exec(
+        select(UserSession).where(UserSession.token_jti == payload["jti"])
+    ).one()
+    assert payload["tenant_id"] == token["tenant_id"]
+    assert str(user_session.tenant_id) == token["tenant_id"]
+
+    db.delete(user)
+    db.commit()
 
 
 def test_enterprise_oidc_maps_local_user_role_and_active_status(
@@ -596,6 +898,8 @@ def test_login_with_bcrypt_password_upgrades_to_argon2(
     db.add(user)
     db.commit()
     db.refresh(user)
+    add_user_to_default_tenant(session=db, user_id=user.id)
+    db.commit()
 
     assert user.hashed_password.startswith("$2")
 
@@ -630,6 +934,8 @@ def test_login_with_argon2_password_keeps_hash(client: TestClient, db: Session) 
     db.add(user)
     db.commit()
     db.refresh(user)
+    add_user_to_default_tenant(session=db, user_id=user.id)
+    db.commit()
 
     original_hash = user.hashed_password
 

@@ -4,11 +4,21 @@ import type { Recordable } from '@vben/types';
 
 import { computed, onMounted, ref } from 'vue';
 
-import { AuthenticationLogin, z } from '@vben/common-ui';
+import { AuthenticationLogin, VbenIconButton, z } from '@vben/common-ui';
+import {
+  SvgDingDingIcon,
+  SvgGithubIcon,
+  SvgQQChatIcon,
+  SvgWeChatIcon,
+} from '@vben/icons';
 import { $t } from '@vben/locales';
 import { Button, message } from 'ant-design-vue';
 
-import { getEnterpriseOidcStatusApi, getLoginCaptchaApi } from '#/api';
+import {
+  getEnterpriseOidcStatusApi,
+  getLoginCaptchaApi,
+  getRegistrationStatusApi,
+} from '#/api';
 import { useAuthStore } from '#/store';
 
 defineOptions({ name: 'Login' });
@@ -19,9 +29,26 @@ const captchaChallenge = ref('');
 const showCaptcha = ref(false);
 const showMfa = ref(false);
 const enterpriseOidcLoginUrl = ref<string>();
+const registrationEnabled = ref(false);
+const defaultTenantCode =
+  import.meta.env.VITE_APP_DEFAULT_TENANT_CODE || 'default';
 
 const formSchema = computed((): VbenFormSchema[] => {
   const schemas: VbenFormSchema[] = [
+    {
+      component: 'VbenInput',
+      componentProps: {
+        autocomplete: 'organization',
+        placeholder: '请输入租户编码',
+      },
+      fieldName: 'tenant_code',
+      label: '租户',
+      rules: z
+        .string()
+        .min(1, { message: '请输入租户编码' })
+        .max(100, { message: '租户编码不能超过 100 个字符' })
+        .default(defaultTenantCode),
+    },
     {
       component: 'VbenInput',
       componentProps: {
@@ -29,7 +56,7 @@ const formSchema = computed((): VbenFormSchema[] => {
         placeholder: 'admin@example.com',
       },
       fieldName: 'username',
-      label: '邮箱',
+      label: '账号',
       rules: z
         .string()
         .min(1, { message: '请输入邮箱' })
@@ -118,6 +145,10 @@ async function startEnterpriseOidcLogin() {
   }
 }
 
+function handleUnconfiguredSocialLogin(provider: string) {
+  message.info(`${provider}登录尚未配置`);
+}
+
 onMounted(async () => {
   const hashQuery = window.location.hash.split('?', 2)[1] || '';
   const ticket =
@@ -145,6 +176,12 @@ onMounted(async () => {
   } catch {
     enterpriseOidcLoginUrl.value = undefined;
   }
+  try {
+    const status = await getRegistrationStatusApi();
+    registrationEnabled.value = status.enabled;
+  } catch {
+    registrationEnabled.value = false;
+  }
 });
 </script>
 
@@ -152,24 +189,69 @@ onMounted(async () => {
   <AuthenticationLogin
     :form-schema="formSchema"
     :loading="authStore.loginLoading"
-    :show-code-login="false"
-    :show-qrcode-login="false"
-    :show-register="false"
+    :show-code-login="true"
+    :show-qrcode-login="true"
+    :show-register="registrationEnabled"
     :show-third-party-login="false"
-    sub-title="使用超级管理员或已创建用户账号登录"
-    title="Fast Vben Admin"
+    sub-title="请输入您的账户信息以开始管理项目"
+    title="欢迎回来"
     @submit="handleSubmit"
   >
     <template #third-party-login>
       <Button
         v-if="enterpriseOidcLoginUrl"
-        class="mt-3"
+        class="mt-4"
         block
-        type="link"
+        type="default"
         @click="startEnterpriseOidcLogin"
       >
         企业单点登录
       </Button>
+      <div class="mt-4 flex items-center justify-between">
+        <span class="w-[35%] border-b border-input"></span>
+        <span class="text-center text-xs text-muted-foreground">
+          其他登录方式
+        </span>
+        <span class="w-[35%] border-b border-input"></span>
+      </div>
+      <div class="mt-4 flex justify-center gap-1">
+        <VbenIconButton
+          tooltip="微信登录"
+          tooltip-side="top"
+          @click="handleUnconfiguredSocialLogin('微信')"
+        >
+          <SvgWeChatIcon />
+        </VbenIconButton>
+        <VbenIconButton
+          tooltip="钉钉登录"
+          tooltip-side="top"
+          @click="handleUnconfiguredSocialLogin('钉钉')"
+        >
+          <SvgDingDingIcon />
+        </VbenIconButton>
+        <VbenIconButton
+          tooltip="QQ 登录"
+          tooltip-side="top"
+          @click="handleUnconfiguredSocialLogin('QQ')"
+        >
+          <SvgQQChatIcon />
+        </VbenIconButton>
+        <VbenIconButton
+          tooltip="GitHub 登录"
+          tooltip-side="top"
+          @click="handleUnconfiguredSocialLogin('GitHub')"
+        >
+          <SvgGithubIcon />
+        </VbenIconButton>
+      </div>
+    </template>
+    <template #to-register>
+      <div v-if="registrationEnabled" class="mt-3 text-center text-sm">
+        还没有租户?
+        <RouterLink class="vben-link text-sm font-normal" to="/auth/register">
+          创建租户
+        </RouterLink>
+      </div>
     </template>
   </AuthenticationLogin>
 </template>

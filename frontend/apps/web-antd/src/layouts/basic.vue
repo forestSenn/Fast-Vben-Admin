@@ -30,6 +30,8 @@ import { $t } from '#/locales';
 import { useAuthStore } from '#/store';
 import LoginForm from '#/views/_core/authentication/login.vue';
 
+import TenantSwitcher from './tenant-switcher.vue';
+
 const notifications = ref<NotificationItem[]>([]);
 const unreadCount = ref(0);
 
@@ -249,16 +251,19 @@ watch(
 <template>
   <BasicLayout @clear-preferences-and-logout="handleLogout">
     <template #user-dropdown>
-      <UserDropdown
-        :avatar
-        :menus
-        :text="userStore.userInfo?.realName"
-        :description="userDescription"
-        tag-text="Pro"
-        trigger="both"
-        @logout="handleLogout"
-        @clear-preferences-and-logout="handleLogout"
-      />
+      <div class="flex items-center">
+        <TenantSwitcher />
+        <UserDropdown
+          :avatar
+          :menus
+          :text="userStore.userInfo?.realName"
+          :description="userDescription"
+          tag-text="Pro"
+          trigger="both"
+          @logout="handleLogout"
+          @clear-preferences-and-logout="handleLogout"
+        />
+      </div>
     </template>
     <template #notification>
       <Notification

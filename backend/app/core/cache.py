@@ -18,6 +18,7 @@ class CacheNamespace:
     DICTIONARY_ITEMS = "dictionary-items"
     LOGIN_RATE_LIMIT = "login-rate-limit"
     LOGIN_CAPTCHA = "login-captcha"
+    SMS_VERIFICATION = "sms-verification"
 
 
 class RedisCache:
@@ -114,12 +115,14 @@ class RedisCache:
             context=f"get cache key {key}",
         )
 
-    def set(self, key: str, value: str, *, ttl_seconds: int | None = None) -> None:
+    def set(self, key: str, value: str, *, ttl_seconds: int | None = None) -> bool:
         ttl = ttl_seconds or settings.REDIS_CACHE_TTL_SECONDS
-        self._run_with_fallback(
-            lambda client: client.setex(key, max(ttl, 1), value),
-            fallback=None,
-            context=f"set cache key {key}",
+        return bool(
+            self._run_with_fallback(
+                lambda client: client.setex(key, max(ttl, 1), value),
+                fallback=False,
+                context=f"set cache key {key}",
+            )
         )
 
     def incr(self, key: str, *, ttl_seconds: int | None = None) -> int | None:

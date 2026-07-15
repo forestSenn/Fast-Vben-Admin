@@ -20,6 +20,20 @@ export function useFormSchema(isEdit = false): VbenFormSchema[] {
       label: $t('system.user.fullName'),
     },
     {
+      component: 'Input',
+      componentProps: {
+        maxlength: 11,
+        placeholder: '13800138000',
+      },
+      fieldName: 'mobile',
+      label: $t('system.user.mobile'),
+      rules: z
+        .string()
+        .regex(/^1[3-9]\d{9}$/, $t('system.user.mobileInvalid'))
+        .optional()
+        .or(z.literal('')),
+    },
+    {
       component: 'ApiSelect',
       componentProps: {
         allowClear: true,

@@ -38,7 +38,9 @@ def test_metrics_exposes_application_http_metrics(client: TestClient) -> None:
     assert "fast_vben_http_request_duration_seconds" in response.text
 
 
-def test_metrics_requires_configured_bearer_token(client: TestClient, monkeypatch) -> None:
+def test_metrics_requires_configured_bearer_token(
+    client: TestClient, monkeypatch
+) -> None:
     monkeypatch.setattr(settings, "METRICS_AUTH_TOKEN", "metrics-test-token")
 
     rejected = client.get("/metrics")

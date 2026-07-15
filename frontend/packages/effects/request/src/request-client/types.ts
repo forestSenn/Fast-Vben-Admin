@@ -6,6 +6,8 @@ import type {
 } from 'axios';
 
 type ExtendOptions<T = any> = {
+  /** 静默处理由调用方主动捕获的可选请求错误。 */
+  skipErrorMessage?: boolean;
   /**
    * 参数序列化方式。预置的有
    * - brackets: ids[]=1&ids[]=2&ids[]=3

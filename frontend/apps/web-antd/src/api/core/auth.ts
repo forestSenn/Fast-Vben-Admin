@@ -2,6 +2,11 @@ import type {
   LoginCaptchaChallenge as FastApiLoginCaptchaChallenge,
   Message,
   NewPassword,
+  RegistrationStatus,
+  SmsCodeRequest,
+  SmsCodeSent,
+  SmsLoginRequest,
+  TenantRegistrationRequest,
   Token,
   UpdatePassword,
   UserPublic,
@@ -19,6 +24,7 @@ export namespace AuthApi {
     captcha_id?: string;
     mfa_code?: string;
     password?: string;
+    tenant_code?: string;
     username?: string;
   }
 
@@ -44,6 +50,16 @@ export namespace AuthApi {
   export type UpdatePasswordPayload = UpdatePassword;
 
   export type ResetPasswordPayload = NewPassword;
+
+  export type SendSmsCodePayload = SmsCodeRequest;
+
+  export type SendSmsCodeResult = SmsCodeSent;
+
+  export type SmsLoginPayload = SmsLoginRequest;
+
+  export type TenantRegistrationPayload = TenantRegistrationRequest;
+
+  export type RegistrationStatusResult = RegistrationStatus;
 
   export interface MfaStatus {
     confirmed_at?: null | string;
@@ -85,6 +101,9 @@ export async function loginApi(data: AuthApi.LoginParams) {
   const formData = new URLSearchParams();
   formData.set('username', data.username ?? '');
   formData.set('password', data.password ?? '');
+  if (data.tenant_code) {
+    formData.set('tenant_code', data.tenant_code);
+  }
   if (data.captcha_id) {
     formData.set('captcha_id', data.captcha_id);
   }
@@ -174,9 +193,43 @@ export function getLoginCaptchaApi(username: string) {
   });
 }
 
+export function sendLoginSmsCodeApi(data: AuthApi.SendSmsCodePayload) {
+  return requestClient.post<AuthApi.SendSmsCodeResult>('/login/sms-code', data);
+}
+
+export async function smsLoginApi(data: AuthApi.SmsLoginPayload) {
+  const token = await requestClient.post<AuthApi.FastApiToken>(
+    '/login/sms',
+    data,
+  );
+  return {
+    accessToken: token.access_token,
+  };
+}
+
+export function getRegistrationStatusApi() {
+  return requestClient.get<AuthApi.RegistrationStatusResult>(
+    '/login/registration/status',
+    { skipErrorMessage: true },
+  );
+}
+
+export async function registerTenantApi(
+  data: AuthApi.TenantRegistrationPayload,
+) {
+  const token = await requestClient.post<AuthApi.FastApiToken>(
+    '/login/register-tenant',
+    data,
+  );
+  return {
+    accessToken: token.access_token,
+  };
+}
+
 export function getEnterpriseOidcStatusApi() {
   return requestClient.get<AuthApi.EnterpriseOidcStatus>(
     '/login/enterprise-oidc/status',
+    { skipErrorMessage: true },
   );
 }
 

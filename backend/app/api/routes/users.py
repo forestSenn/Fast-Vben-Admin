@@ -10,6 +10,7 @@ from sqlmodel import col, delete, func, or_, select
 
 from app import crud
 from app.api.deps import (
+    CurrentTenant,
     CurrentUser,
     SessionDep,
     normalize_pagination,
@@ -18,6 +19,7 @@ from app.api.deps import (
 )
 from app.core.cache import CacheNamespace, redis_cache
 from app.core.config import settings
+from app.core.data_permissions import build_owner_data_scope_filter
 from app.core.mfa import (
     build_totp_uri,
     decrypt_totp_secret,
@@ -28,6 +30,7 @@ from app.core.mfa import (
     serialize_recovery_codes,
     verify_totp_code,
 )
+from app.core.quotas import ensure_member_quota
 from app.core.security import get_password_hash, verify_password
 from app.models import (
     Department,
@@ -37,6 +40,7 @@ from app.models import (
     PostPublic,
     Role,
     RolePublic,
+    TenantMembership,
     UpdatePassword,
     User,
     UserCreate,
@@ -50,6 +54,7 @@ from app.models import (
     UserPublic,
     UserRole,
     UserRoleUpdate,
+    UserSession,
     UsersPublic,
     UserUpdate,
     UserUpdateMe,
@@ -73,19 +78,33 @@ def split_codes(value: str | None) -> list[str]:
     return [code.strip() for code in value.replace(";", ",").split(",") if code.strip()]
 
 
-def resolve_department_id(session: SessionDep, code: str | None) -> uuid.UUID | None:
+def resolve_department_id(
+    session: SessionDep, tenant_id: uuid.UUID, code: str | None
+) -> uuid.UUID | None:
     if not code:
         return None
-    department = session.exec(select(Department).where(Department.code == code)).first()
+    department = session.exec(
+        select(Department).where(
+            Department.tenant_id == tenant_id,
+            Department.code == code,
+        )
+    ).first()
     if not department:
         raise ValueError(f"department code does not exist: {code}")
     return department.id
 
 
-def resolve_roles(session: SessionDep, codes: list[str]) -> list[Role]:
+def resolve_roles(
+    session: SessionDep, tenant_id: uuid.UUID, codes: list[str]
+) -> list[Role]:
     if not codes:
         return []
-    roles = session.exec(select(Role).where(col(Role.code).in_(codes))).all()
+    roles = session.exec(
+        select(Role).where(
+            Role.tenant_id == tenant_id,
+            col(Role.code).in_(codes),
+        )
+    ).all()
     if len(roles) != len(set(codes)):
         found_codes = {role.code for role in roles}
         missing_codes = sorted(set(codes) - found_codes)
@@ -93,10 +112,17 @@ def resolve_roles(session: SessionDep, codes: list[str]) -> list[Role]:
     return roles
 
 
-def resolve_posts(session: SessionDep, codes: list[str]) -> list[Post]:
+def resolve_posts(
+    session: SessionDep, tenant_id: uuid.UUID, codes: list[str]
+) -> list[Post]:
     if not codes:
         return []
-    posts = session.exec(select(Post).where(col(Post.code).in_(codes))).all()
+    posts = session.exec(
+        select(Post).where(
+            Post.tenant_id == tenant_id,
+            col(Post.code).in_(codes),
+        )
+    ).all()
     if len(posts) != len(set(codes)):
         found_codes = {post.code for post in posts}
         missing_codes = sorted(set(codes) - found_codes)
@@ -104,24 +130,90 @@ def resolve_posts(session: SessionDep, codes: list[str]) -> list[Post]:
     return posts
 
 
-def get_user_role_codes(session: SessionDep, user_id: uuid.UUID) -> str:
+def get_user_role_codes(
+    session: SessionDep, user_id: uuid.UUID, tenant_id: uuid.UUID
+) -> str:
     roles = session.exec(
         select(Role)
         .join(UserRole, UserRole.role_id == Role.id)
-        .where(UserRole.user_id == user_id)
+        .where(
+            UserRole.user_id == user_id,
+            UserRole.tenant_id == tenant_id,
+            Role.tenant_id == tenant_id,
+        )
         .order_by(col(Role.sort), col(Role.created_at))
     ).all()
     return ",".join(role.code for role in roles)
 
 
-def get_user_post_codes(session: SessionDep, user_id: uuid.UUID) -> str:
+def get_tenant_membership_or_404(
+    session: SessionDep,
+    user_id: uuid.UUID,
+    tenant_id: uuid.UUID,
+) -> TenantMembership:
+    membership = session.exec(
+        select(TenantMembership).where(
+            TenantMembership.user_id == user_id,
+            TenantMembership.tenant_id == tenant_id,
+        )
+    ).first()
+    if membership is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return membership
+
+
+def ensure_user_in_data_scope(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> TenantMembership:
+    membership = get_tenant_membership_or_404(session, user_id, tenant_id)
+    allowed = session.exec(
+        select(User.id)
+        .join(TenantMembership, TenantMembership.user_id == User.id)
+        .where(
+            User.id == user_id,
+            TenantMembership.tenant_id == tenant_id,
+            TenantMembership.is_active,
+            build_owner_data_scope_filter(
+                session=session,
+                current_user=current_user,
+                tenant_id=tenant_id,
+                owner_id_column=User.id,
+            ),
+        )
+    ).first()
+    if allowed is None:
+        raise HTTPException(
+            status_code=403,
+            detail="The user is outside the current data scope",
+        )
+    return membership
+
+
+def get_user_post_codes(
+    session: SessionDep, user_id: uuid.UUID, tenant_id: uuid.UUID
+) -> str:
     posts = session.exec(
         select(Post)
         .join(UserPost, UserPost.post_id == Post.id)
-        .where(UserPost.user_id == user_id)
+        .where(
+            UserPost.user_id == user_id,
+            UserPost.tenant_id == tenant_id,
+            Post.tenant_id == tenant_id,
+        )
         .order_by(col(Post.sort), col(Post.created_at))
     ).all()
     return ",".join(post.code for post in posts)
+
+
+def build_user_public(user: User, membership: TenantMembership) -> UserPublic:
+    return UserPublic.model_validate(
+        user,
+        update={"department_id": membership.department_id},
+    )
 
 
 def build_user_mfa_status(user: User) -> UserMfaStatus:
@@ -131,9 +223,7 @@ def build_user_mfa_status(user: User) -> UserMfaStatus:
         pending_setup=pending_setup,
         method="totp" if user.mfa_enabled else None,
         confirmed_at=user.mfa_confirmed_at,
-        recovery_codes_remaining=get_recovery_code_count(
-            user.mfa_recovery_code_hashes
-        ),
+        recovery_codes_remaining=get_recovery_code_count(user.mfa_recovery_code_hashes),
     )
 
 
@@ -144,6 +234,8 @@ def build_user_mfa_status(user: User) -> UserMfaStatus:
 )
 def read_users(
     session: SessionDep,
+    current_user: CurrentUser,
+    tenant_context: CurrentTenant,
     page: int = 1,
     page_size: int = 20,
     keyword: str | None = None,
@@ -155,30 +247,47 @@ def read_users(
     """
     page, page_size = normalize_pagination(page=page, page_size=page_size)
 
-    filters = []
+    filters = [
+        TenantMembership.tenant_id == tenant_context.tenant_id,
+        TenantMembership.is_active,
+        build_owner_data_scope_filter(
+            session=session,
+            current_user=current_user,
+            tenant_id=tenant_context.tenant_id,
+            owner_id_column=User.id,
+        ),
+    ]
     if keyword:
         pattern = f"%{keyword}%"
         filters.append(
             or_(col(User.email).ilike(pattern), col(User.full_name).ilike(pattern))
         )
     if department_id:
-        filters.append(col(User.department_id) == department_id)
+        filters.append(TenantMembership.department_id == department_id)
     if is_active is not None:
         filters.append(User.is_active == is_active)
 
-    count_statement = select(func.count()).select_from(User)
+    count_statement = (
+        select(func.count())
+        .select_from(User)
+        .join(TenantMembership, TenantMembership.user_id == User.id)
+    )
     if filters:
         count_statement = count_statement.where(*filters)
     count = session.exec(count_statement).one()
 
     offset = (page - 1) * page_size
-    statement = select(User)
+    statement = select(User, TenantMembership).join(
+        TenantMembership, TenantMembership.user_id == User.id
+    )
     if filters:
         statement = statement.where(*filters)
-    statement = statement.order_by(col(User.created_at).desc()).offset(offset).limit(page_size)
-    users = session.exec(statement).all()
+    statement = (
+        statement.order_by(col(User.created_at).desc()).offset(offset).limit(page_size)
+    )
+    rows = session.exec(statement).all()
 
-    users_public = [UserPublic.model_validate(user) for user in users]
+    users_public = [build_user_public(user, membership) for user, membership in rows]
     return UsersPublic(
         items=users_public,
         total=count,
@@ -193,7 +302,11 @@ def read_users(
     response_model=UserPublic,
 )
 def create_user(
-    *, session: SessionDep, current_user: CurrentUser, user_in: UserCreate
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    tenant_context: CurrentTenant,
+    user_in: UserCreate,
 ) -> Any:
     """
     Create new user.
@@ -204,12 +317,36 @@ def create_user(
             status_code=400,
             detail="The user with this email already exists in the system.",
         )
+    if user_in.mobile:
+        user_in.mobile = user_in.mobile.strip()
+        if crud.get_user_by_mobile(session=session, mobile=user_in.mobile):
+            raise HTTPException(
+                status_code=409,
+                detail="User with this mobile already exists",
+            )
     if user_in.is_superuser and not current_user.is_superuser:
         raise HTTPException(
             status_code=403, detail="The user doesn't have enough privileges"
         )
+    ensure_member_quota(
+        session=session,
+        tenant_id=tenant_context.tenant_id,
+    )
+    if user_in.department_id:
+        department = session.exec(
+            select(Department).where(
+                Department.id == user_in.department_id,
+                Department.tenant_id == tenant_context.tenant_id,
+            )
+        ).first()
+        if department is None:
+            raise HTTPException(status_code=400, detail="Department does not exist")
 
-    user = crud.create_user(session=session, user_create=user_in)
+    user = crud.create_user(
+        session=session,
+        user_create=user_in,
+        tenant_id=tenant_context.tenant_id,
+    )
     if settings.emails_enabled and user_in.email:
         email_data = generate_new_account_email(
             email_to=user_in.email, username=user_in.email, password=user_in.password
@@ -219,12 +356,19 @@ def create_user(
             subject=email_data.subject,
             html_content=email_data.html_content,
         )
-    return user
+    membership = get_tenant_membership_or_404(
+        session, user.id, tenant_context.tenant_id
+    )
+    return build_user_public(user, membership)
 
 
 @router.patch("/me", response_model=UserPublic)
 def update_user_me(
-    *, session: SessionDep, user_in: UserUpdateMe, current_user: CurrentUser
+    *,
+    session: SessionDep,
+    user_in: UserUpdateMe,
+    current_user: CurrentUser,
+    tenant_context: CurrentTenant,
 ) -> Any:
     """
     Update own user.
@@ -242,7 +386,10 @@ def update_user_me(
     session.add(current_user)
     session.commit()
     session.refresh(current_user)
-    return current_user
+    membership = get_tenant_membership_or_404(
+        session, current_user.id, tenant_context.tenant_id
+    )
+    return build_user_public(current_user, membership)
 
 
 @router.patch("/me/password", response_model=Message)
@@ -269,11 +416,18 @@ def update_password_me(
 
 
 @router.get("/me", response_model=UserPublic)
-def read_user_me(current_user: CurrentUser) -> Any:
+def read_user_me(
+    session: SessionDep,
+    current_user: CurrentUser,
+    tenant_context: CurrentTenant,
+) -> Any:
     """
     Get current user.
     """
-    return current_user
+    membership = get_tenant_membership_or_404(
+        session, current_user.id, tenant_context.tenant_id
+    )
+    return build_user_public(current_user, membership)
 
 
 @router.get("/me/mfa", response_model=UserMfaStatus)
@@ -285,9 +439,7 @@ def read_user_mfa_status(current_user: CurrentUser) -> UserMfaStatus:
 
 
 @router.post("/me/mfa/setup", response_model=UserMfaSetup)
-def setup_user_mfa(
-    *, session: SessionDep, current_user: CurrentUser
-) -> UserMfaSetup:
+def setup_user_mfa(*, session: SessionDep, current_user: CurrentUser) -> UserMfaSetup:
     """
     Create or replace current user's pending TOTP setup.
     """
@@ -392,11 +544,22 @@ def disable_user_mfa(
     dependencies=[Depends(require_permission("system:user:update"))],
     response_model=Message,
 )
-def reset_user_mfa(session: SessionDep, user_id: uuid.UUID) -> Message:
+def reset_user_mfa(
+    session: SessionDep,
+    current_user: CurrentUser,
+    tenant_context: CurrentTenant,
+    user_id: uuid.UUID,
+) -> Message:
     """Reset a user's MFA after an administrator has verified the recovery request."""
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    ensure_user_in_data_scope(
+        session=session,
+        current_user=current_user,
+        tenant_id=tenant_context.tenant_id,
+        user_id=user_id,
+    )
 
     user.mfa_enabled = False
     user.mfa_secret_encrypted = None
@@ -413,7 +576,11 @@ def reset_user_mfa(session: SessionDep, user_id: uuid.UUID) -> Message:
     "/export",
     dependencies=[Depends(require_permission("system:user:list"))],
 )
-def export_users(session: SessionDep) -> StreamingResponse:
+def export_users(
+    session: SessionDep,
+    current_user: CurrentUser,
+    tenant_context: CurrentTenant,
+) -> StreamingResponse:
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(
@@ -430,11 +597,30 @@ def export_users(session: SessionDep) -> StreamingResponse:
             "created_at",
         ]
     )
-    users = session.exec(select(User).order_by(col(User.created_at).desc())).all()
-    for user in users:
+    rows = session.exec(
+        select(User, TenantMembership)
+        .join(TenantMembership, TenantMembership.user_id == User.id)
+        .where(
+            TenantMembership.tenant_id == tenant_context.tenant_id,
+            TenantMembership.is_active,
+            build_owner_data_scope_filter(
+                session=session,
+                current_user=current_user,
+                tenant_id=tenant_context.tenant_id,
+                owner_id_column=User.id,
+            ),
+        )
+        .order_by(col(User.created_at).desc())
+    ).all()
+    for user, membership in rows:
         department_code = ""
-        if user.department_id:
-            department = session.get(Department, user.department_id)
+        if membership.department_id:
+            department = session.exec(
+                select(Department).where(
+                    Department.id == membership.department_id,
+                    Department.tenant_id == tenant_context.tenant_id,
+                )
+            ).first()
             department_code = department.code if department else ""
         writer.writerow(
             [
@@ -443,10 +629,10 @@ def export_users(session: SessionDep) -> StreamingResponse:
                 user.full_name or "",
                 user.is_active,
                 user.is_superuser,
-                user.department_id or "",
+                membership.department_id or "",
                 department_code,
-                get_user_role_codes(session, user.id),
-                get_user_post_codes(session, user.id),
+                get_user_role_codes(session, user.id, tenant_context.tenant_id),
+                get_user_post_codes(session, user.id, tenant_context.tenant_id),
                 user.created_at or "",
             ]
         )
@@ -506,6 +692,7 @@ def download_user_import_template() -> StreamingResponse:
 async def import_users(
     session: SessionDep,
     current_user: CurrentUser,
+    tenant_context: CurrentTenant,
     file: UploadFile = File(...),
 ) -> dict[str, Any]:
     if not file.filename or not file.filename.lower().endswith(".csv"):
@@ -541,15 +728,22 @@ async def import_users(
             if crud.get_user_by_email(session=session, email=email):
                 raise ValueError("email already exists")
 
+            ensure_member_quota(
+                session=session,
+                tenant_id=tenant_context.tenant_id,
+            )
+
             is_superuser = parse_csv_bool(row.get("is_superuser"), default=False)
             if is_superuser and not current_user.is_superuser:
                 raise ValueError("not allowed to import superuser")
 
             department_id = resolve_department_id(
-                session, (row.get("department_code") or "").strip() or None
+                session,
+                tenant_context.tenant_id,
+                (row.get("department_code") or "").strip() or None,
             )
-            roles = resolve_roles(session, role_codes)
-            posts = resolve_posts(session, post_codes)
+            roles = resolve_roles(session, tenant_context.tenant_id, role_codes)
+            posts = resolve_posts(session, tenant_context.tenant_id, post_codes)
             user_in = UserCreate(
                 email=email,
                 password=password,
@@ -558,14 +752,35 @@ async def import_users(
                 is_active=parse_csv_bool(row.get("is_active"), default=True),
                 is_superuser=is_superuser,
             )
-            user = crud.create_user(session=session, user_create=user_in)
+            user = crud.create_user(
+                session=session,
+                user_create=user_in,
+                tenant_id=tenant_context.tenant_id,
+            )
 
             if role_codes:
-                session.exec(delete(UserRole).where(UserRole.user_id == user.id))
+                session.exec(
+                    delete(UserRole).where(
+                        UserRole.user_id == user.id,
+                        UserRole.tenant_id == tenant_context.tenant_id,
+                    )
+                )
                 for role in roles:
-                    session.add(UserRole(user_id=user.id, role_id=role.id))
+                    session.add(
+                        UserRole(
+                            user_id=user.id,
+                            role_id=role.id,
+                            tenant_id=tenant_context.tenant_id,
+                        )
+                    )
             for post in posts:
-                session.add(UserPost(user_id=user.id, post_id=post.id))
+                session.add(
+                    UserPost(
+                        user_id=user.id,
+                        post_id=post.id,
+                        tenant_id=tenant_context.tenant_id,
+                    )
+                )
             session.commit()
             if role_codes:
                 redis_cache.bump_namespace(CacheNamespace.RBAC)
@@ -584,16 +799,23 @@ async def import_users(
 
 @router.get("/{user_id}", response_model=UserPublic)
 def read_user_by_id(
-    user_id: uuid.UUID, session: SessionDep, current_user: CurrentUser
+    user_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
+    tenant_context: CurrentTenant,
 ) -> Any:
     """
     Get a specific user by id.
     """
     if user_id == current_user.id:
-        return current_user
+        membership = get_tenant_membership_or_404(
+            session, user_id, tenant_context.tenant_id
+        )
+        return build_user_public(current_user, membership)
     if not user_has_permission(
         session=session,
         current_user=current_user,
+        tenant_id=tenant_context.tenant_id,
         permission_code="system:user:list",
     ):
         raise HTTPException(
@@ -603,7 +825,13 @@ def read_user_by_id(
     user = session.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
-    return user
+    membership = ensure_user_in_data_scope(
+        session=session,
+        current_user=current_user,
+        tenant_id=tenant_context.tenant_id,
+        user_id=user_id,
+    )
+    return build_user_public(user, membership)
 
 
 @router.get(
@@ -611,15 +839,29 @@ def read_user_by_id(
     dependencies=[Depends(require_permission("system:user:list"))],
     response_model=list[RolePublic],
 )
-def read_user_roles(*, session: SessionDep, user_id: uuid.UUID) -> Any:
+def read_user_roles(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    tenant_context: CurrentTenant,
+    user_id: uuid.UUID,
+) -> Any:
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    ensure_user_in_data_scope(
+        session=session,
+        current_user=current_user,
+        tenant_id=tenant_context.tenant_id,
+        user_id=user_id,
+    )
     roles = session.exec(
         select(Role)
         .join(UserRole, UserRole.role_id == Role.id)
-        .where(UserRole.user_id == user_id)
+        .where(
+            UserRole.user_id == user_id, UserRole.tenant_id == tenant_context.tenant_id
+        )
         .order_by(col(Role.sort), col(Role.created_at))
     ).all()
     return [RolePublic.model_validate(role) for role in roles]
@@ -631,22 +873,46 @@ def read_user_roles(*, session: SessionDep, user_id: uuid.UUID) -> Any:
     response_model=list[uuid.UUID],
 )
 def update_user_roles(
-    *, session: SessionDep, user_id: uuid.UUID, body: UserRoleUpdate
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    tenant_context: CurrentTenant,
+    user_id: uuid.UUID,
+    body: UserRoleUpdate,
 ) -> Any:
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    ensure_user_in_data_scope(
+        session=session,
+        current_user=current_user,
+        tenant_id=tenant_context.tenant_id,
+        user_id=user_id,
+    )
     if body.role_ids:
         role_count = session.exec(
-            select(func.count()).select_from(Role).where(col(Role.id).in_(body.role_ids))
+            select(func.count())
+            .select_from(Role)
+            .where(
+                Role.tenant_id == tenant_context.tenant_id,
+                col(Role.id).in_(body.role_ids),
+            )
         ).one()
         if role_count != len(set(body.role_ids)):
             raise HTTPException(status_code=400, detail="Some roles do not exist")
 
-    session.exec(delete(UserRole).where(UserRole.user_id == user_id))
+    session.exec(
+        delete(UserRole).where(
+            UserRole.user_id == user_id, UserRole.tenant_id == tenant_context.tenant_id
+        )
+    )
     for role_id in set(body.role_ids):
-        session.add(UserRole(user_id=user_id, role_id=role_id))
+        session.add(
+            UserRole(
+                user_id=user_id, role_id=role_id, tenant_id=tenant_context.tenant_id
+            )
+        )
     user.updated_at = get_datetime_utc()
     session.add(user)
     session.commit()
@@ -659,15 +925,31 @@ def update_user_roles(
     dependencies=[Depends(require_permission("system:user:list"))],
     response_model=list[PostPublic],
 )
-def read_user_posts(*, session: SessionDep, user_id: uuid.UUID) -> Any:
+def read_user_posts(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    tenant_context: CurrentTenant,
+    user_id: uuid.UUID,
+) -> Any:
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    ensure_user_in_data_scope(
+        session=session,
+        current_user=current_user,
+        tenant_id=tenant_context.tenant_id,
+        user_id=user_id,
+    )
     posts = session.exec(
         select(Post)
         .join(UserPost, UserPost.post_id == Post.id)
         .where(UserPost.user_id == user_id)
+        .where(
+            UserPost.tenant_id == tenant_context.tenant_id,
+            Post.tenant_id == tenant_context.tenant_id,
+        )
         .order_by(col(Post.sort), col(Post.created_at))
     ).all()
     return [PostPublic.model_validate(post) for post in posts]
@@ -679,22 +961,49 @@ def read_user_posts(*, session: SessionDep, user_id: uuid.UUID) -> Any:
     response_model=list[uuid.UUID],
 )
 def update_user_posts(
-    *, session: SessionDep, user_id: uuid.UUID, body: UserPostUpdate
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    tenant_context: CurrentTenant,
+    user_id: uuid.UUID,
+    body: UserPostUpdate,
 ) -> Any:
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    ensure_user_in_data_scope(
+        session=session,
+        current_user=current_user,
+        tenant_id=tenant_context.tenant_id,
+        user_id=user_id,
+    )
     if body.post_ids:
         post_count = session.exec(
-            select(func.count()).select_from(Post).where(col(Post.id).in_(body.post_ids))
+            select(func.count())
+            .select_from(Post)
+            .where(
+                Post.tenant_id == tenant_context.tenant_id,
+                col(Post.id).in_(body.post_ids),
+            )
         ).one()
         if post_count != len(set(body.post_ids)):
             raise HTTPException(status_code=400, detail="Some posts do not exist")
 
-    session.exec(delete(UserPost).where(UserPost.user_id == user_id))
+    session.exec(
+        delete(UserPost).where(
+            UserPost.user_id == user_id,
+            UserPost.tenant_id == tenant_context.tenant_id,
+        )
+    )
     for post_id in set(body.post_ids):
-        session.add(UserPost(user_id=user_id, post_id=post_id))
+        session.add(
+            UserPost(
+                user_id=user_id,
+                post_id=post_id,
+                tenant_id=tenant_context.tenant_id,
+            )
+        )
     user.updated_at = get_datetime_utc()
     session.add(user)
     session.commit()
@@ -710,6 +1019,7 @@ def update_user(
     *,
     session: SessionDep,
     current_user: CurrentUser,
+    tenant_context: CurrentTenant,
     user_id: uuid.UUID,
     user_in: UserUpdate,
 ) -> Any:
@@ -723,6 +1033,12 @@ def update_user(
             status_code=404,
             detail="The user with this id does not exist in the system",
         )
+    membership = ensure_user_in_data_scope(
+        session=session,
+        current_user=current_user,
+        tenant_id=tenant_context.tenant_id,
+        user_id=user_id,
+    )
     if db_user.is_superuser and not current_user.is_superuser:
         raise HTTPException(
             status_code=403, detail="The user doesn't have enough privileges"
@@ -737,6 +1053,17 @@ def update_user(
             raise HTTPException(
                 status_code=409, detail="User with this email already exists"
             )
+    if user_in.mobile:
+        user_in.mobile = user_in.mobile.strip()
+        existing_user = crud.get_user_by_mobile(
+            session=session,
+            mobile=user_in.mobile,
+        )
+        if existing_user and existing_user.id != user_id:
+            raise HTTPException(
+                status_code=409,
+                detail="User with this mobile already exists",
+            )
     if db_user.is_superuser and user_in.is_superuser is False:
         superuser_count = session.exec(
             select(func.count())
@@ -749,10 +1076,25 @@ def update_user(
                 detail="Cannot remove the last superuser",
             )
 
+    if user_in.department_id is not None:
+        department = session.exec(
+            select(Department).where(
+                Department.id == user_in.department_id,
+                Department.tenant_id == tenant_context.tenant_id,
+            )
+        ).first()
+        if department is None:
+            raise HTTPException(status_code=400, detail="Department does not exist")
+        membership.department_id = user_in.department_id
+        session.add(membership)
+    elif "department_id" in user_in.model_fields_set:
+        membership.department_id = None
+        session.add(membership)
+
     db_user = crud.update_user(session=session, db_user=db_user, user_in=user_in)
     if user_in.is_superuser is not None:
         redis_cache.bump_namespace(CacheNamespace.RBAC)
-    return db_user
+    return build_user_public(db_user, membership)
 
 
 @router.delete(
@@ -761,7 +1103,10 @@ def update_user(
     status_code=204,
 )
 def delete_user(
-    session: SessionDep, current_user: CurrentUser, user_id: uuid.UUID
+    session: SessionDep,
+    current_user: CurrentUser,
+    tenant_context: CurrentTenant,
+    user_id: uuid.UUID,
 ) -> None:
     """
     Delete a user.
@@ -769,6 +1114,12 @@ def delete_user(
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    membership = ensure_user_in_data_scope(
+        session=session,
+        current_user=current_user,
+        tenant_id=tenant_context.tenant_id,
+        user_id=user_id,
+    )
     if user == current_user:
         raise HTTPException(
             status_code=403, detail="Super users are not allowed to delete themselves"
@@ -786,8 +1137,38 @@ def delete_user(
                 status_code=400,
                 detail="Cannot delete the last superuser",
             )
-    statement = delete(Item).where(col(Item.owner_id) == user_id)
+    statement = delete(Item).where(
+        col(Item.owner_id) == user_id, Item.tenant_id == tenant_context.tenant_id
+    )
     session.exec(statement)
-    session.delete(user)
+    memberships_count = session.exec(
+        select(func.count())
+        .select_from(TenantMembership)
+        .where(TenantMembership.user_id == user_id)
+    ).one()
+    session.exec(
+        delete(UserSession).where(
+            UserSession.user_id == user_id,
+            UserSession.tenant_id == tenant_context.tenant_id,
+        )
+    )
+    if memberships_count > 1:
+        was_default = membership.is_default
+        session.delete(membership)
+        if was_default:
+            next_membership = session.exec(
+                select(TenantMembership)
+                .where(
+                    TenantMembership.user_id == user_id,
+                    TenantMembership.tenant_id != tenant_context.tenant_id,
+                    TenantMembership.is_active,
+                )
+                .order_by(col(TenantMembership.created_at))
+            ).first()
+            if next_membership is not None:
+                next_membership.is_default = True
+                session.add(next_membership)
+    else:
+        session.delete(user)
     session.commit()
     return None

@@ -33,6 +33,19 @@ ERROR_CODE_BY_MESSAGE = {
     "Too many failed login attempts. Please try again later.": "AUTH_RATE_LIMITED",
     "Captcha verification required.": "AUTH_CAPTCHA_REQUIRED",
     "Captcha is invalid or expired.": "AUTH_CAPTCHA_INVALID",
+    "SMS verification code is invalid or expired.": "AUTH_SMS_CODE_INVALID",
+    "SMS verification is unavailable.": "AUTH_SMS_UNAVAILABLE",
+    "Incorrect mobile or verification code": "AUTH_SMS_INVALID",
+    "Invalid mobile number": "AUTH_MOBILE_INVALID",
+    "SMS verification code was sent recently.": "AUTH_SMS_RESEND_LIMITED",
+    "Too many SMS verification requests.": "AUTH_SMS_RATE_LIMITED",
+    "Public registration is disabled": "AUTH_REGISTER_DISABLED",
+    "Invalid tenant code": "TENANT_CODE_INVALID",
+    "Email already exists": "USER_EMAIL_CONFLICT",
+    "Mobile already exists": "USER_MOBILE_CONFLICT",
+    "User with this mobile already exists": "USER_MOBILE_CONFLICT",
+    "Tenant registration is not configured": "TENANT_REGISTER_NOT_CONFIGURED",
+    "Tenant registration conflicts with existing data": "TENANT_REGISTER_CONFLICT",
     "MFA verification required.": "AUTH_MFA_REQUIRED",
     "MFA is disabled": "AUTH_MFA_DISABLED",
     "MFA is not configured.": "AUTH_MFA_NOT_CONFIGURED",
@@ -47,6 +60,15 @@ ERROR_CODE_BY_MESSAGE = {
     "Enterprise OIDC identity is not linked to an active local user": "AUTH_ENTERPRISE_OIDC_USER_INVALID",
     "Enterprise OIDC identity token is invalid": "AUTH_ENTERPRISE_OIDC_TOKEN_INVALID",
     "User not found": "USER_NOT_FOUND",
+    "User has no active tenant": "TENANT_MEMBERSHIP_REQUIRED",
+    "Tenant context is invalid": "TENANT_CONTEXT_INVALID",
+    "Tenant not found": "TENANT_NOT_FOUND",
+    "Tenant code already exists": "TENANT_CODE_CONFLICT",
+    "Default tenant cannot be disabled": "TENANT_DEFAULT_PROTECTED",
+    "Default tenant code cannot be changed": "TENANT_DEFAULT_PROTECTED",
+    "Tenant member quota exceeded": "TENANT_MEMBER_QUOTA_EXCEEDED",
+    "Tenant file quota exceeded": "TENANT_FILE_QUOTA_EXCEEDED",
+    "Tenant storage quota exceeded": "TENANT_STORAGE_QUOTA_EXCEEDED",
     "Not enough permissions": "ITEM_FORBIDDEN",
     "The user doesn't have enough privileges": "USER_FORBIDDEN",
 }
@@ -79,9 +101,7 @@ app.middleware("http")(metrics_middleware)
 
 
 @app.exception_handler(HTTPException)
-async def http_exception_handler(
-    _request: Request, exc: HTTPException
-) -> JSONResponse:
+async def http_exception_handler(_request: Request, exc: HTTPException) -> JSONResponse:
     detail = exc.detail if isinstance(exc.detail, str) else "Request failed"
     return error_response(
         status_code=exc.status_code,

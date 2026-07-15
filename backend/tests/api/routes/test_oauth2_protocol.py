@@ -22,7 +22,9 @@ def test_authorization_code_pkce_refresh_and_revoke_flow(
     client_id = "protocol-test-client"
     redirect_uri = "https://client.example.test/callback"
     verifier = "a" * 43
-    challenge = urlsafe_b64encode(sha256(verifier.encode()).digest()).decode().rstrip("=")
+    challenge = (
+        urlsafe_b64encode(sha256(verifier.encode()).digest()).decode().rstrip("=")
+    )
     oauth_client = OAuth2Client(
         client_id=client_id,
         name="Protocol test client",

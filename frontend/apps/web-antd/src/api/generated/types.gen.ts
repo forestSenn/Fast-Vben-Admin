@@ -47,6 +47,10 @@ export type BodyLoginLoginAccessToken = {
      */
     password: string;
     /**
+     * Tenant Code
+     */
+    tenant_code?: string | null;
+    /**
      * Captcha Code
      */
     captcha_code?: string | null;
@@ -248,6 +252,11 @@ export type DashboardRadarSeries = {
 };
 
 /**
+ * DataScope
+ */
+export type DataScope = 'all' | 'department' | 'department_and_children' | 'self' | 'custom';
+
+/**
  * DepartmentCreate
  */
 export type DepartmentCreate = {
@@ -317,6 +326,10 @@ export type DepartmentPublic = {
      * Id
      */
     id: string;
+    /**
+     * Tenant Id
+     */
+    tenant_id: string;
     /**
      * Created At
      */
@@ -454,6 +467,10 @@ export type DictionaryItemPublic = {
      */
     id: string;
     /**
+     * Tenant Id
+     */
+    tenant_id: string;
+    /**
      * Created At
      */
     created_at?: string | null;
@@ -565,6 +582,10 @@ export type DictionaryTypePublic = {
      * Id
      */
     id: string;
+    /**
+     * Tenant Id
+     */
+    tenant_id: string;
     /**
      * Created At
      */
@@ -695,6 +716,10 @@ export type FileAssetPublic = {
      * Id
      */
     id: string;
+    /**
+     * Tenant Id
+     */
+    tenant_id: string;
     /**
      * Created At
      */
@@ -863,6 +888,10 @@ export type FileStorageChannelPublic = {
      * Id
      */
     id: string;
+    /**
+     * Tenant Id
+     */
+    tenant_id: string;
     /**
      * Created At
      */
@@ -1040,6 +1069,10 @@ export type ItemPublic = {
      */
     owner_id: string;
     /**
+     * Tenant Id
+     */
+    tenant_id: string;
+    /**
      * Created At
      */
     created_at?: string | null;
@@ -1135,6 +1168,10 @@ export type LoginLogPublic = {
      * Id
      */
     id: string;
+    /**
+     * Tenant Id
+     */
+    tenant_id: string;
     /**
      * Created At
      */
@@ -1274,6 +1311,10 @@ export type MailAccountPublic = {
      */
     id: string;
     /**
+     * Tenant Id
+     */
+    tenant_id: string;
+    /**
      * Created At
      */
     created_at?: string | null;
@@ -1367,6 +1408,10 @@ export type MailLogPublic = {
      * Id
      */
     id: string;
+    /**
+     * Tenant Id
+     */
+    tenant_id: string;
     /**
      * Account Id
      */
@@ -1557,6 +1602,10 @@ export type MailTemplatePublic = {
      * Id
      */
     id: string;
+    /**
+     * Tenant Id
+     */
+    tenant_id: string;
     /**
      * Account Code
      */
@@ -1909,6 +1958,10 @@ export type NoticePublic = {
      * Id
      */
     id: string;
+    /**
+     * Tenant Id
+     */
+    tenant_id: string;
     /**
      * Created By
      */
@@ -2336,6 +2389,10 @@ export type OperationLogPublic = {
      */
     id: string;
     /**
+     * Tenant Id
+     */
+    tenant_id: string;
+    /**
      * Created At
      */
     created_at?: string | null;
@@ -2418,6 +2475,10 @@ export type PostPublic = {
      */
     id: string;
     /**
+     * Tenant Id
+     */
+    tenant_id: string;
+    /**
      * Created At
      */
     created_at?: string | null;
@@ -2498,6 +2559,16 @@ export type PrivateUserCreate = {
 };
 
 /**
+ * RegistrationStatus
+ */
+export type RegistrationStatus = {
+    /**
+     * Enabled
+     */
+    enabled: boolean;
+};
+
+/**
  * RoleCreate
  */
 export type RoleCreate = {
@@ -2525,6 +2596,11 @@ export type RoleCreate = {
      * Is System
      */
     is_system?: boolean;
+    data_scope?: DataScope;
+    /**
+     * Custom Department Ids
+     */
+    custom_department_ids?: Array<string>;
 };
 
 /**
@@ -2565,10 +2641,15 @@ export type RolePublic = {
      * Is System
      */
     is_system?: boolean;
+    data_scope?: DataScope;
     /**
      * Id
      */
     id: string;
+    /**
+     * Tenant Id
+     */
+    tenant_id: string;
     /**
      * Created At
      */
@@ -2577,6 +2658,10 @@ export type RolePublic = {
      * Updated At
      */
     updated_at?: string | null;
+    /**
+     * Custom Department Ids
+     */
+    custom_department_ids?: Array<string>;
 };
 
 /**
@@ -2607,6 +2692,11 @@ export type RoleUpdate = {
      * Is System
      */
     is_system?: boolean | null;
+    data_scope?: DataScope | null;
+    /**
+     * Custom Department Ids
+     */
+    custom_department_ids?: Array<string> | null;
 };
 
 /**
@@ -2687,6 +2777,10 @@ export type SiteMessagePublic = {
      * Id
      */
     id: string;
+    /**
+     * Tenant Id
+     */
+    tenant_id: string;
     /**
      * Created At
      */
@@ -2787,6 +2881,10 @@ export type SiteMessageTemplatePublic = {
      * Id
      */
     id: string;
+    /**
+     * Tenant Id
+     */
+    tenant_id: string;
     /**
      * Params
      */
@@ -2974,6 +3072,10 @@ export type SmsChannelPublic = {
      */
     id: string;
     /**
+     * Tenant Id
+     */
+    tenant_id: string;
+    /**
      * Created At
      */
     created_at?: string | null;
@@ -3052,6 +3154,42 @@ export type SmsChannelsPublic = {
 };
 
 /**
+ * SmsCodeRequest
+ */
+export type SmsCodeRequest = {
+    /**
+     * Tenant Code
+     */
+    tenant_code: string;
+    /**
+     * Mobile
+     */
+    mobile: string;
+    /**
+     * Scene
+     */
+    scene?: 'login' | 'register';
+};
+
+/**
+ * SmsCodeSent
+ */
+export type SmsCodeSent = {
+    /**
+     * Message
+     */
+    message: string;
+    /**
+     * Retry After Seconds
+     */
+    retry_after_seconds: number;
+    /**
+     * Debug Code
+     */
+    debug_code?: string | null;
+};
+
+/**
  * SmsDeliveryCallback
  */
 export type SmsDeliveryCallback = {
@@ -3077,6 +3215,10 @@ export type SmsLogPublic = {
      * Id
      */
     id: string;
+    /**
+     * Tenant Id
+     */
+    tenant_id: string;
     /**
      * Channel Id
      */
@@ -3161,6 +3303,24 @@ export type SmsLogPublic = {
      * Created At
      */
     created_at?: string | null;
+};
+
+/**
+ * SmsLoginRequest
+ */
+export type SmsLoginRequest = {
+    /**
+     * Tenant Code
+     */
+    tenant_code: string;
+    /**
+     * Mobile
+     */
+    mobile: string;
+    /**
+     * Code
+     */
+    code: string;
 };
 
 /**
@@ -3287,6 +3447,10 @@ export type SmsTemplatePublic = {
      * Id
      */
     id: string;
+    /**
+     * Tenant Id
+     */
+    tenant_id: string;
     /**
      * Params
      */
@@ -3702,6 +3866,10 @@ export type SystemSettingPublic = {
      */
     id: string;
     /**
+     * Tenant Id
+     */
+    tenant_id: string;
+    /**
      * Created At
      */
     created_at?: string | null;
@@ -3768,6 +3936,592 @@ export type SystemSettingsPublic = {
 };
 
 /**
+ * TenantCreate
+ */
+export type TenantCreate = {
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Is Active
+     */
+    is_active?: boolean;
+    /**
+     * Plan Id
+     */
+    plan_id?: string | null;
+    /**
+     * Initialization Template Id
+     */
+    initialization_template_id?: string | null;
+};
+
+/**
+ * TenantInitializationTemplateCreate
+ */
+export type TenantInitializationTemplateCreate = {
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Root Department Code
+     */
+    root_department_code?: string;
+    /**
+     * Root Department Name
+     */
+    root_department_name?: string;
+    /**
+     * Seed Posts
+     */
+    seed_posts?: boolean;
+    /**
+     * Seed Dictionaries
+     */
+    seed_dictionaries?: boolean;
+    /**
+     * Seed Settings
+     */
+    seed_settings?: boolean;
+    /**
+     * Seed Storage Channels
+     */
+    seed_storage_channels?: boolean;
+    /**
+     * Seed Message Templates
+     */
+    seed_message_templates?: boolean;
+    /**
+     * Seed Sms Channels
+     */
+    seed_sms_channels?: boolean;
+    /**
+     * Seed Mail Accounts
+     */
+    seed_mail_accounts?: boolean;
+    /**
+     * Is Default
+     */
+    is_default?: boolean;
+    /**
+     * Is Active
+     */
+    is_active?: boolean;
+};
+
+/**
+ * TenantInitializationTemplatePublic
+ */
+export type TenantInitializationTemplatePublic = {
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Root Department Code
+     */
+    root_department_code?: string;
+    /**
+     * Root Department Name
+     */
+    root_department_name?: string;
+    /**
+     * Seed Posts
+     */
+    seed_posts?: boolean;
+    /**
+     * Seed Dictionaries
+     */
+    seed_dictionaries?: boolean;
+    /**
+     * Seed Settings
+     */
+    seed_settings?: boolean;
+    /**
+     * Seed Storage Channels
+     */
+    seed_storage_channels?: boolean;
+    /**
+     * Seed Message Templates
+     */
+    seed_message_templates?: boolean;
+    /**
+     * Seed Sms Channels
+     */
+    seed_sms_channels?: boolean;
+    /**
+     * Seed Mail Accounts
+     */
+    seed_mail_accounts?: boolean;
+    /**
+     * Is Default
+     */
+    is_default?: boolean;
+    /**
+     * Is Active
+     */
+    is_active?: boolean;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+    /**
+     * Updated At
+     */
+    updated_at?: string | null;
+};
+
+/**
+ * TenantInitializationTemplateUpdate
+ */
+export type TenantInitializationTemplateUpdate = {
+    /**
+     * Code
+     */
+    code?: string | null;
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Root Department Code
+     */
+    root_department_code?: string | null;
+    /**
+     * Root Department Name
+     */
+    root_department_name?: string | null;
+    /**
+     * Seed Posts
+     */
+    seed_posts?: boolean | null;
+    /**
+     * Seed Dictionaries
+     */
+    seed_dictionaries?: boolean | null;
+    /**
+     * Seed Settings
+     */
+    seed_settings?: boolean | null;
+    /**
+     * Seed Storage Channels
+     */
+    seed_storage_channels?: boolean | null;
+    /**
+     * Seed Message Templates
+     */
+    seed_message_templates?: boolean | null;
+    /**
+     * Seed Sms Channels
+     */
+    seed_sms_channels?: boolean | null;
+    /**
+     * Seed Mail Accounts
+     */
+    seed_mail_accounts?: boolean | null;
+    /**
+     * Is Default
+     */
+    is_default?: boolean | null;
+    /**
+     * Is Active
+     */
+    is_active?: boolean | null;
+};
+
+/**
+ * TenantInitializationTemplatesPublic
+ */
+export type TenantInitializationTemplatesPublic = {
+    /**
+     * Items
+     */
+    items: Array<TenantInitializationTemplatePublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+};
+
+/**
+ * TenantMembershipPublic
+ */
+export type TenantMembershipPublic = {
+    tenant: TenantPublic;
+    /**
+     * Is Active
+     */
+    is_active: boolean;
+    /**
+     * Is Default
+     */
+    is_default: boolean;
+    /**
+     * Is Current
+     */
+    is_current: boolean;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+};
+
+/**
+ * TenantPlanCreate
+ */
+export type TenantPlanCreate = {
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Max Members
+     */
+    max_members?: number | null;
+    /**
+     * Max File Assets
+     */
+    max_file_assets?: number | null;
+    /**
+     * Max Storage Bytes
+     */
+    max_storage_bytes?: number | null;
+    /**
+     * Is Default
+     */
+    is_default?: boolean;
+    /**
+     * Is Active
+     */
+    is_active?: boolean;
+};
+
+/**
+ * TenantPlanPublic
+ */
+export type TenantPlanPublic = {
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Max Members
+     */
+    max_members?: number | null;
+    /**
+     * Max File Assets
+     */
+    max_file_assets?: number | null;
+    /**
+     * Max Storage Bytes
+     */
+    max_storage_bytes?: number | null;
+    /**
+     * Is Default
+     */
+    is_default?: boolean;
+    /**
+     * Is Active
+     */
+    is_active?: boolean;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+    /**
+     * Updated At
+     */
+    updated_at?: string | null;
+};
+
+/**
+ * TenantPlanUpdate
+ */
+export type TenantPlanUpdate = {
+    /**
+     * Code
+     */
+    code?: string | null;
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Max Members
+     */
+    max_members?: number | null;
+    /**
+     * Max File Assets
+     */
+    max_file_assets?: number | null;
+    /**
+     * Max Storage Bytes
+     */
+    max_storage_bytes?: number | null;
+    /**
+     * Is Default
+     */
+    is_default?: boolean | null;
+    /**
+     * Is Active
+     */
+    is_active?: boolean | null;
+};
+
+/**
+ * TenantPlansPublic
+ */
+export type TenantPlansPublic = {
+    /**
+     * Items
+     */
+    items: Array<TenantPlanPublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+};
+
+/**
+ * TenantPublic
+ */
+export type TenantPublic = {
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Is Active
+     */
+    is_active?: boolean;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Plan Name
+     */
+    plan_name?: string | null;
+    /**
+     * Initialization Template Id
+     */
+    initialization_template_id: string;
+    /**
+     * Initialization Template Name
+     */
+    initialization_template_name?: string | null;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+    /**
+     * Updated At
+     */
+    updated_at?: string | null;
+};
+
+/**
+ * TenantRegistrationRequest
+ */
+export type TenantRegistrationRequest = {
+    /**
+     * Tenant Code
+     */
+    tenant_code: string;
+    /**
+     * Tenant Name
+     */
+    tenant_name: string;
+    /**
+     * Email
+     */
+    email: string;
+    /**
+     * Mobile
+     */
+    mobile: string;
+    /**
+     * Full Name
+     */
+    full_name: string;
+    /**
+     * Password
+     */
+    password: string;
+    /**
+     * Sms Code
+     */
+    sms_code: string;
+};
+
+/**
+ * TenantSwitchRequest
+ */
+export type TenantSwitchRequest = {
+    /**
+     * Tenant Id
+     */
+    tenant_id: string;
+};
+
+/**
+ * TenantUpdate
+ */
+export type TenantUpdate = {
+    /**
+     * Code
+     */
+    code?: string | null;
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Is Active
+     */
+    is_active?: boolean | null;
+    /**
+     * Plan Id
+     */
+    plan_id?: string | null;
+};
+
+/**
+ * TenantUsagePublic
+ */
+export type TenantUsagePublic = {
+    /**
+     * Tenant Id
+     */
+    tenant_id: string;
+    plan: TenantPlanPublic;
+    /**
+     * Members
+     */
+    members: number;
+    /**
+     * File Assets
+     */
+    file_assets: number;
+    /**
+     * Storage Bytes
+     */
+    storage_bytes: number;
+};
+
+/**
+ * TenantsPublic
+ */
+export type TenantsPublic = {
+    /**
+     * Items
+     */
+    items: Array<TenantPublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+};
+
+/**
  * Token
  */
 export type Token = {
@@ -3779,6 +4533,10 @@ export type Token = {
      * Token Type
      */
     token_type?: string;
+    /**
+     * Tenant Id
+     */
+    tenant_id: string;
 };
 
 /**
@@ -3848,6 +4606,10 @@ export type UserCreate = {
      */
     email: string;
     /**
+     * Mobile
+     */
+    mobile?: string | null;
+    /**
      * Is Active
      */
     is_active?: boolean;
@@ -3860,13 +4622,13 @@ export type UserCreate = {
      */
     full_name?: string | null;
     /**
-     * Department Id
-     */
-    department_id?: string | null;
-    /**
      * Avatar Url
      */
     avatar_url?: string | null;
+    /**
+     * Department Id
+     */
+    department_id?: string | null;
     /**
      * Password
      */
@@ -3929,6 +4691,10 @@ export type UserMessagePublic = {
      * Id
      */
     id: string;
+    /**
+     * Tenant Id
+     */
+    tenant_id: string;
     /**
      * Created At
      */
@@ -4062,6 +4828,10 @@ export type UserPublic = {
      */
     email: string;
     /**
+     * Mobile
+     */
+    mobile?: string | null;
+    /**
      * Is Active
      */
     is_active?: boolean;
@@ -4074,13 +4844,13 @@ export type UserPublic = {
      */
     full_name?: string | null;
     /**
-     * Department Id
-     */
-    department_id?: string | null;
-    /**
      * Avatar Url
      */
     avatar_url?: string | null;
+    /**
+     * Department Id
+     */
+    department_id?: string | null;
     /**
      * Id
      */
@@ -4113,6 +4883,10 @@ export type UserUpdate = {
      * Email
      */
     email?: string | null;
+    /**
+     * Mobile
+     */
+    mobile?: string | null;
     /**
      * Is Active
      */
@@ -4198,6 +4972,425 @@ export type ValidationError = {
         [key: string]: unknown;
     };
 };
+
+/**
+ * WorkflowAuditPublic
+ */
+export type WorkflowAuditPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Task Id
+     */
+    task_id: string | null;
+    /**
+     * Action
+     */
+    action: string;
+    /**
+     * Actor User Id
+     */
+    actor_user_id: string;
+    /**
+     * Comment
+     */
+    comment: string | null;
+    /**
+     * Detail
+     */
+    detail: {
+        [key: string]: unknown;
+    };
+    /**
+     * Created At
+     */
+    created_at: string;
+};
+
+/**
+ * WorkflowDefinitionCreate
+ */
+export type WorkflowDefinitionCreate = {
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Process Id
+     */
+    process_id: string;
+    /**
+     * Bpmn Xml
+     */
+    bpmn_xml: string;
+    /**
+     * Task Assignments
+     */
+    task_assignments?: {
+        [key: string]: string;
+    };
+    /**
+     * Timeout Hours
+     */
+    timeout_hours?: number | null;
+};
+
+/**
+ * WorkflowDefinitionPublic
+ */
+export type WorkflowDefinitionPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Versions
+     */
+    versions?: Array<WorkflowVersionPublic>;
+};
+
+/**
+ * WorkflowInstancePublic
+ */
+export type WorkflowInstancePublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Definition Version Id
+     */
+    definition_version_id: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Business Type
+     */
+    business_type: string | null;
+    /**
+     * Business Id
+     */
+    business_id: string | null;
+    /**
+     * Form Data
+     */
+    form_data: {
+        [key: string]: unknown;
+    };
+    status: WorkflowInstanceStatus;
+    /**
+     * Started By
+     */
+    started_by: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Completed At
+     */
+    completed_at: string | null;
+    /**
+     * Tasks
+     */
+    tasks?: Array<WorkflowTaskPublic>;
+    /**
+     * Audits
+     */
+    audits?: Array<WorkflowAuditPublic>;
+};
+
+/**
+ * WorkflowInstanceStatus
+ */
+export type WorkflowInstanceStatus = 'running' | 'completed' | 'rejected' | 'withdrawn';
+
+/**
+ * WorkflowStartRequest
+ */
+export type WorkflowStartRequest = {
+    /**
+     * Definition Code
+     */
+    definition_code: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Business Type
+     */
+    business_type?: string | null;
+    /**
+     * Business Id
+     */
+    business_id?: string | null;
+    /**
+     * Form Data
+     */
+    form_data?: {
+        [key: string]: unknown;
+    };
+};
+
+/**
+ * WorkflowTaskActionRequest
+ */
+export type WorkflowTaskActionRequest = {
+    /**
+     * Action
+     */
+    action: 'approve' | 'reject' | 'transfer' | 'cc';
+    /**
+     * Comment
+     */
+    comment?: string | null;
+    /**
+     * Target User Id
+     */
+    target_user_id?: string | null;
+};
+
+/**
+ * WorkflowTaskPublic
+ */
+export type WorkflowTaskPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Instance Id
+     */
+    instance_id: string;
+    /**
+     * Task Key
+     */
+    task_key: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Assignment Expression
+     */
+    assignment_expression: string;
+    status: WorkflowTaskStatus;
+    /**
+     * Due At
+     */
+    due_at: string | null;
+    /**
+     * Is Overdue
+     */
+    is_overdue?: boolean;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Completed At
+     */
+    completed_at: string | null;
+};
+
+/**
+ * WorkflowTaskStatus
+ */
+export type WorkflowTaskStatus = 'pending' | 'approved' | 'rejected' | 'transferred' | 'cancelled';
+
+/**
+ * WorkflowVersionCreate
+ */
+export type WorkflowVersionCreate = {
+    /**
+     * Process Id
+     */
+    process_id: string;
+    /**
+     * Bpmn Xml
+     */
+    bpmn_xml: string;
+    /**
+     * Task Assignments
+     */
+    task_assignments?: {
+        [key: string]: string;
+    };
+    /**
+     * Timeout Hours
+     */
+    timeout_hours?: number | null;
+};
+
+/**
+ * WorkflowVersionPublic
+ */
+export type WorkflowVersionPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Definition Id
+     */
+    definition_id: string;
+    /**
+     * Version
+     */
+    version: number;
+    /**
+     * Process Id
+     */
+    process_id: string;
+    /**
+     * Task Assignments
+     */
+    task_assignments: {
+        [key: string]: string;
+    };
+    /**
+     * Timeout Hours
+     */
+    timeout_hours: number | null;
+    status: WorkflowVersionStatus;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Published At
+     */
+    published_at: string | null;
+};
+
+/**
+ * WorkflowVersionStatus
+ */
+export type WorkflowVersionStatus = 'draft' | 'published' | 'retired';
+
+export type LoginSendLoginSmsCodeData = {
+    body: SmsCodeRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/login/sms-code';
+};
+
+export type LoginSendLoginSmsCodeErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LoginSendLoginSmsCodeError = LoginSendLoginSmsCodeErrors[keyof LoginSendLoginSmsCodeErrors];
+
+export type LoginSendLoginSmsCodeResponses = {
+    /**
+     * Successful Response
+     */
+    200: SmsCodeSent;
+};
+
+export type LoginSendLoginSmsCodeResponse = LoginSendLoginSmsCodeResponses[keyof LoginSendLoginSmsCodeResponses];
+
+export type LoginLoginWithSmsCodeData = {
+    body: SmsLoginRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/login/sms';
+};
+
+export type LoginLoginWithSmsCodeErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LoginLoginWithSmsCodeError = LoginLoginWithSmsCodeErrors[keyof LoginLoginWithSmsCodeErrors];
+
+export type LoginLoginWithSmsCodeResponses = {
+    /**
+     * Successful Response
+     */
+    200: Token;
+};
+
+export type LoginLoginWithSmsCodeResponse = LoginLoginWithSmsCodeResponses[keyof LoginLoginWithSmsCodeResponses];
+
+export type LoginReadRegistrationStatusData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/login/registration/status';
+};
+
+export type LoginReadRegistrationStatusResponses = {
+    /**
+     * Successful Response
+     */
+    200: RegistrationStatus;
+};
+
+export type LoginReadRegistrationStatusResponse = LoginReadRegistrationStatusResponses[keyof LoginReadRegistrationStatusResponses];
+
+export type LoginRegisterTenantData = {
+    body: TenantRegistrationRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/login/register-tenant';
+};
+
+export type LoginRegisterTenantErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LoginRegisterTenantError = LoginRegisterTenantErrors[keyof LoginRegisterTenantErrors];
+
+export type LoginRegisterTenantResponses = {
+    /**
+     * Successful Response
+     */
+    200: Token;
+};
+
+export type LoginRegisterTenantResponse = LoginRegisterTenantResponses[keyof LoginRegisterTenantResponses];
 
 export type LoginGetLoginCaptchaData = {
     body?: never;
@@ -8829,6 +10022,794 @@ export type SocialUnbindSocialUserResponses = {
 };
 
 export type SocialUnbindSocialUserResponse = SocialUnbindSocialUserResponses[keyof SocialUnbindSocialUserResponses];
+
+export type TenantsReadMyTenantsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/tenants/me';
+};
+
+export type TenantsReadMyTenantsResponses = {
+    /**
+     * Response Tenants-Read My Tenants
+     *
+     * Successful Response
+     */
+    200: Array<TenantMembershipPublic>;
+};
+
+export type TenantsReadMyTenantsResponse = TenantsReadMyTenantsResponses[keyof TenantsReadMyTenantsResponses];
+
+export type TenantsSwitchTenantData = {
+    body: TenantSwitchRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/tenants/switch';
+};
+
+export type TenantsSwitchTenantErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TenantsSwitchTenantError = TenantsSwitchTenantErrors[keyof TenantsSwitchTenantErrors];
+
+export type TenantsSwitchTenantResponses = {
+    /**
+     * Successful Response
+     */
+    200: Token;
+};
+
+export type TenantsSwitchTenantResponse = TenantsSwitchTenantResponses[keyof TenantsSwitchTenantResponses];
+
+export type TenantsReadTenantsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Page
+         */
+        page?: number;
+        /**
+         * Page Size
+         */
+        page_size?: number;
+        /**
+         * Keyword
+         */
+        keyword?: string | null;
+        /**
+         * Is Active
+         */
+        is_active?: boolean | null;
+    };
+    url: '/api/v1/tenants';
+};
+
+export type TenantsReadTenantsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TenantsReadTenantsError = TenantsReadTenantsErrors[keyof TenantsReadTenantsErrors];
+
+export type TenantsReadTenantsResponses = {
+    /**
+     * Successful Response
+     */
+    200: TenantsPublic;
+};
+
+export type TenantsReadTenantsResponse = TenantsReadTenantsResponses[keyof TenantsReadTenantsResponses];
+
+export type TenantsCreateTenantData = {
+    body: TenantCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/tenants';
+};
+
+export type TenantsCreateTenantErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TenantsCreateTenantError = TenantsCreateTenantErrors[keyof TenantsCreateTenantErrors];
+
+export type TenantsCreateTenantResponses = {
+    /**
+     * Successful Response
+     */
+    200: TenantPublic;
+};
+
+export type TenantsCreateTenantResponse = TenantsCreateTenantResponses[keyof TenantsCreateTenantResponses];
+
+export type TenantsReadTenantPlansData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Page
+         */
+        page?: number;
+        /**
+         * Page Size
+         */
+        page_size?: number;
+        /**
+         * Keyword
+         */
+        keyword?: string | null;
+        /**
+         * Is Active
+         */
+        is_active?: boolean | null;
+    };
+    url: '/api/v1/tenants/plans';
+};
+
+export type TenantsReadTenantPlansErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TenantsReadTenantPlansError = TenantsReadTenantPlansErrors[keyof TenantsReadTenantPlansErrors];
+
+export type TenantsReadTenantPlansResponses = {
+    /**
+     * Successful Response
+     */
+    200: TenantPlansPublic;
+};
+
+export type TenantsReadTenantPlansResponse = TenantsReadTenantPlansResponses[keyof TenantsReadTenantPlansResponses];
+
+export type TenantsCreateTenantPlanData = {
+    body: TenantPlanCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/tenants/plans';
+};
+
+export type TenantsCreateTenantPlanErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TenantsCreateTenantPlanError = TenantsCreateTenantPlanErrors[keyof TenantsCreateTenantPlanErrors];
+
+export type TenantsCreateTenantPlanResponses = {
+    /**
+     * Successful Response
+     */
+    200: TenantPlanPublic;
+};
+
+export type TenantsCreateTenantPlanResponse = TenantsCreateTenantPlanResponses[keyof TenantsCreateTenantPlanResponses];
+
+export type TenantsReadSimpleTenantPlansData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/tenants/plans/simple';
+};
+
+export type TenantsReadSimpleTenantPlansResponses = {
+    /**
+     * Response Tenants-Read Simple Tenant Plans
+     *
+     * Successful Response
+     */
+    200: Array<TenantPlanPublic>;
+};
+
+export type TenantsReadSimpleTenantPlansResponse = TenantsReadSimpleTenantPlansResponses[keyof TenantsReadSimpleTenantPlansResponses];
+
+export type TenantsDeleteTenantPlanData = {
+    body?: never;
+    path: {
+        /**
+         * Plan Id
+         */
+        plan_id: string;
+    };
+    query?: never;
+    url: '/api/v1/tenants/plans/{plan_id}';
+};
+
+export type TenantsDeleteTenantPlanErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TenantsDeleteTenantPlanError = TenantsDeleteTenantPlanErrors[keyof TenantsDeleteTenantPlanErrors];
+
+export type TenantsDeleteTenantPlanResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type TenantsDeleteTenantPlanResponse = TenantsDeleteTenantPlanResponses[keyof TenantsDeleteTenantPlanResponses];
+
+export type TenantsUpdateTenantPlanData = {
+    body: TenantPlanUpdate;
+    path: {
+        /**
+         * Plan Id
+         */
+        plan_id: string;
+    };
+    query?: never;
+    url: '/api/v1/tenants/plans/{plan_id}';
+};
+
+export type TenantsUpdateTenantPlanErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TenantsUpdateTenantPlanError = TenantsUpdateTenantPlanErrors[keyof TenantsUpdateTenantPlanErrors];
+
+export type TenantsUpdateTenantPlanResponses = {
+    /**
+     * Successful Response
+     */
+    200: TenantPlanPublic;
+};
+
+export type TenantsUpdateTenantPlanResponse = TenantsUpdateTenantPlanResponses[keyof TenantsUpdateTenantPlanResponses];
+
+export type TenantsReadTenantTemplatesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Page
+         */
+        page?: number;
+        /**
+         * Page Size
+         */
+        page_size?: number;
+        /**
+         * Keyword
+         */
+        keyword?: string | null;
+        /**
+         * Is Active
+         */
+        is_active?: boolean | null;
+    };
+    url: '/api/v1/tenants/templates';
+};
+
+export type TenantsReadTenantTemplatesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TenantsReadTenantTemplatesError = TenantsReadTenantTemplatesErrors[keyof TenantsReadTenantTemplatesErrors];
+
+export type TenantsReadTenantTemplatesResponses = {
+    /**
+     * Successful Response
+     */
+    200: TenantInitializationTemplatesPublic;
+};
+
+export type TenantsReadTenantTemplatesResponse = TenantsReadTenantTemplatesResponses[keyof TenantsReadTenantTemplatesResponses];
+
+export type TenantsCreateTenantTemplateData = {
+    body: TenantInitializationTemplateCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/tenants/templates';
+};
+
+export type TenantsCreateTenantTemplateErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TenantsCreateTenantTemplateError = TenantsCreateTenantTemplateErrors[keyof TenantsCreateTenantTemplateErrors];
+
+export type TenantsCreateTenantTemplateResponses = {
+    /**
+     * Successful Response
+     */
+    200: TenantInitializationTemplatePublic;
+};
+
+export type TenantsCreateTenantTemplateResponse = TenantsCreateTenantTemplateResponses[keyof TenantsCreateTenantTemplateResponses];
+
+export type TenantsReadSimpleTenantTemplatesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/tenants/templates/simple';
+};
+
+export type TenantsReadSimpleTenantTemplatesResponses = {
+    /**
+     * Response Tenants-Read Simple Tenant Templates
+     *
+     * Successful Response
+     */
+    200: Array<TenantInitializationTemplatePublic>;
+};
+
+export type TenantsReadSimpleTenantTemplatesResponse = TenantsReadSimpleTenantTemplatesResponses[keyof TenantsReadSimpleTenantTemplatesResponses];
+
+export type TenantsDeleteTenantTemplateData = {
+    body?: never;
+    path: {
+        /**
+         * Template Id
+         */
+        template_id: string;
+    };
+    query?: never;
+    url: '/api/v1/tenants/templates/{template_id}';
+};
+
+export type TenantsDeleteTenantTemplateErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TenantsDeleteTenantTemplateError = TenantsDeleteTenantTemplateErrors[keyof TenantsDeleteTenantTemplateErrors];
+
+export type TenantsDeleteTenantTemplateResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type TenantsDeleteTenantTemplateResponse = TenantsDeleteTenantTemplateResponses[keyof TenantsDeleteTenantTemplateResponses];
+
+export type TenantsUpdateTenantTemplateData = {
+    body: TenantInitializationTemplateUpdate;
+    path: {
+        /**
+         * Template Id
+         */
+        template_id: string;
+    };
+    query?: never;
+    url: '/api/v1/tenants/templates/{template_id}';
+};
+
+export type TenantsUpdateTenantTemplateErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TenantsUpdateTenantTemplateError = TenantsUpdateTenantTemplateErrors[keyof TenantsUpdateTenantTemplateErrors];
+
+export type TenantsUpdateTenantTemplateResponses = {
+    /**
+     * Successful Response
+     */
+    200: TenantInitializationTemplatePublic;
+};
+
+export type TenantsUpdateTenantTemplateResponse = TenantsUpdateTenantTemplateResponses[keyof TenantsUpdateTenantTemplateResponses];
+
+export type TenantsReadTenantUsageData = {
+    body?: never;
+    path: {
+        /**
+         * Tenant Id
+         */
+        tenant_id: string;
+    };
+    query?: never;
+    url: '/api/v1/tenants/{tenant_id}/usage';
+};
+
+export type TenantsReadTenantUsageErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TenantsReadTenantUsageError = TenantsReadTenantUsageErrors[keyof TenantsReadTenantUsageErrors];
+
+export type TenantsReadTenantUsageResponses = {
+    /**
+     * Successful Response
+     */
+    200: TenantUsagePublic;
+};
+
+export type TenantsReadTenantUsageResponse = TenantsReadTenantUsageResponses[keyof TenantsReadTenantUsageResponses];
+
+export type TenantsArchiveTenantData = {
+    body?: never;
+    path: {
+        /**
+         * Tenant Id
+         */
+        tenant_id: string;
+    };
+    query?: never;
+    url: '/api/v1/tenants/{tenant_id}';
+};
+
+export type TenantsArchiveTenantErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TenantsArchiveTenantError = TenantsArchiveTenantErrors[keyof TenantsArchiveTenantErrors];
+
+export type TenantsArchiveTenantResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type TenantsArchiveTenantResponse = TenantsArchiveTenantResponses[keyof TenantsArchiveTenantResponses];
+
+export type TenantsReadTenantData = {
+    body?: never;
+    path: {
+        /**
+         * Tenant Id
+         */
+        tenant_id: string;
+    };
+    query?: never;
+    url: '/api/v1/tenants/{tenant_id}';
+};
+
+export type TenantsReadTenantErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TenantsReadTenantError = TenantsReadTenantErrors[keyof TenantsReadTenantErrors];
+
+export type TenantsReadTenantResponses = {
+    /**
+     * Successful Response
+     */
+    200: TenantPublic;
+};
+
+export type TenantsReadTenantResponse = TenantsReadTenantResponses[keyof TenantsReadTenantResponses];
+
+export type TenantsUpdateTenantData = {
+    body: TenantUpdate;
+    path: {
+        /**
+         * Tenant Id
+         */
+        tenant_id: string;
+    };
+    query?: never;
+    url: '/api/v1/tenants/{tenant_id}';
+};
+
+export type TenantsUpdateTenantErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TenantsUpdateTenantError = TenantsUpdateTenantErrors[keyof TenantsUpdateTenantErrors];
+
+export type TenantsUpdateTenantResponses = {
+    /**
+     * Successful Response
+     */
+    200: TenantPublic;
+};
+
+export type TenantsUpdateTenantResponse = TenantsUpdateTenantResponses[keyof TenantsUpdateTenantResponses];
+
+export type WorkflowsListDefinitionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/workflows/definitions';
+};
+
+export type WorkflowsListDefinitionsResponses = {
+    /**
+     * Response Workflows-List Definitions
+     *
+     * Successful Response
+     */
+    200: Array<WorkflowDefinitionPublic>;
+};
+
+export type WorkflowsListDefinitionsResponse = WorkflowsListDefinitionsResponses[keyof WorkflowsListDefinitionsResponses];
+
+export type WorkflowsCreateDefinitionData = {
+    body: WorkflowDefinitionCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/workflows/definitions';
+};
+
+export type WorkflowsCreateDefinitionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type WorkflowsCreateDefinitionError = WorkflowsCreateDefinitionErrors[keyof WorkflowsCreateDefinitionErrors];
+
+export type WorkflowsCreateDefinitionResponses = {
+    /**
+     * Successful Response
+     */
+    200: WorkflowDefinitionPublic;
+};
+
+export type WorkflowsCreateDefinitionResponse = WorkflowsCreateDefinitionResponses[keyof WorkflowsCreateDefinitionResponses];
+
+export type WorkflowsCreateVersionData = {
+    body: WorkflowVersionCreate;
+    path: {
+        /**
+         * Definition Id
+         */
+        definition_id: string;
+    };
+    query?: never;
+    url: '/api/v1/workflows/definitions/{definition_id}/versions';
+};
+
+export type WorkflowsCreateVersionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type WorkflowsCreateVersionError = WorkflowsCreateVersionErrors[keyof WorkflowsCreateVersionErrors];
+
+export type WorkflowsCreateVersionResponses = {
+    /**
+     * Successful Response
+     */
+    200: WorkflowVersionPublic;
+};
+
+export type WorkflowsCreateVersionResponse = WorkflowsCreateVersionResponses[keyof WorkflowsCreateVersionResponses];
+
+export type WorkflowsPublishVersionData = {
+    body?: never;
+    path: {
+        /**
+         * Version Id
+         */
+        version_id: string;
+    };
+    query?: never;
+    url: '/api/v1/workflows/versions/{version_id}/publish';
+};
+
+export type WorkflowsPublishVersionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type WorkflowsPublishVersionError = WorkflowsPublishVersionErrors[keyof WorkflowsPublishVersionErrors];
+
+export type WorkflowsPublishVersionResponses = {
+    /**
+     * Successful Response
+     */
+    200: WorkflowVersionPublic;
+};
+
+export type WorkflowsPublishVersionResponse = WorkflowsPublishVersionResponses[keyof WorkflowsPublishVersionResponses];
+
+export type WorkflowsListInstancesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/workflows/instances';
+};
+
+export type WorkflowsListInstancesResponses = {
+    /**
+     * Response Workflows-List Instances
+     *
+     * Successful Response
+     */
+    200: Array<WorkflowInstancePublic>;
+};
+
+export type WorkflowsListInstancesResponse = WorkflowsListInstancesResponses[keyof WorkflowsListInstancesResponses];
+
+export type WorkflowsStartInstanceData = {
+    body: WorkflowStartRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/workflows/instances';
+};
+
+export type WorkflowsStartInstanceErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type WorkflowsStartInstanceError = WorkflowsStartInstanceErrors[keyof WorkflowsStartInstanceErrors];
+
+export type WorkflowsStartInstanceResponses = {
+    /**
+     * Successful Response
+     */
+    200: WorkflowInstancePublic;
+};
+
+export type WorkflowsStartInstanceResponse = WorkflowsStartInstanceResponses[keyof WorkflowsStartInstanceResponses];
+
+export type WorkflowsReadInstanceData = {
+    body?: never;
+    path: {
+        /**
+         * Instance Id
+         */
+        instance_id: string;
+    };
+    query?: never;
+    url: '/api/v1/workflows/instances/{instance_id}';
+};
+
+export type WorkflowsReadInstanceErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type WorkflowsReadInstanceError = WorkflowsReadInstanceErrors[keyof WorkflowsReadInstanceErrors];
+
+export type WorkflowsReadInstanceResponses = {
+    /**
+     * Successful Response
+     */
+    200: WorkflowInstancePublic;
+};
+
+export type WorkflowsReadInstanceResponse = WorkflowsReadInstanceResponses[keyof WorkflowsReadInstanceResponses];
+
+export type WorkflowsWithdrawInstanceData = {
+    body?: never;
+    path: {
+        /**
+         * Instance Id
+         */
+        instance_id: string;
+    };
+    query?: never;
+    url: '/api/v1/workflows/instances/{instance_id}/withdraw';
+};
+
+export type WorkflowsWithdrawInstanceErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type WorkflowsWithdrawInstanceError = WorkflowsWithdrawInstanceErrors[keyof WorkflowsWithdrawInstanceErrors];
+
+export type WorkflowsWithdrawInstanceResponses = {
+    /**
+     * Successful Response
+     */
+    200: WorkflowInstancePublic;
+};
+
+export type WorkflowsWithdrawInstanceResponse = WorkflowsWithdrawInstanceResponses[keyof WorkflowsWithdrawInstanceResponses];
+
+export type WorkflowsListTasksData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Overdue
+         */
+        overdue?: boolean | null;
+    };
+    url: '/api/v1/workflows/tasks';
+};
+
+export type WorkflowsListTasksErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type WorkflowsListTasksError = WorkflowsListTasksErrors[keyof WorkflowsListTasksErrors];
+
+export type WorkflowsListTasksResponses = {
+    /**
+     * Response Workflows-List Tasks
+     *
+     * Successful Response
+     */
+    200: Array<WorkflowTaskPublic>;
+};
+
+export type WorkflowsListTasksResponse = WorkflowsListTasksResponses[keyof WorkflowsListTasksResponses];
+
+export type WorkflowsActOnTaskData = {
+    body: WorkflowTaskActionRequest;
+    path: {
+        /**
+         * Task Id
+         */
+        task_id: string;
+    };
+    query?: never;
+    url: '/api/v1/workflows/tasks/{task_id}/actions';
+};
+
+export type WorkflowsActOnTaskErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type WorkflowsActOnTaskError = WorkflowsActOnTaskErrors[keyof WorkflowsActOnTaskErrors];
+
+export type WorkflowsActOnTaskResponses = {
+    /**
+     * Successful Response
+     */
+    200: WorkflowInstancePublic;
+};
+
+export type WorkflowsActOnTaskResponse = WorkflowsActOnTaskResponses[keyof WorkflowsActOnTaskResponses];
 
 export type PrivateCreateUserData = {
     body: PrivateUserCreate;

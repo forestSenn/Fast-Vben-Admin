@@ -4,7 +4,12 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlmodel import col, func, select
 
-from app.api.deps import SessionDep, normalize_pagination, require_permission
+from app.api.deps import (
+    CurrentTenant,
+    SessionDep,
+    normalize_pagination,
+    require_permission,
+)
 from app.models import (
     Post,
     PostCreate,
@@ -18,6 +23,17 @@ from app.models import (
 router = APIRouter(prefix="/posts", tags=["posts"])
 
 
+def get_post_or_404(
+    *, session: SessionDep, tenant_id: uuid.UUID, post_id: uuid.UUID
+) -> Post:
+    post = session.exec(
+        select(Post).where(Post.id == post_id, Post.tenant_id == tenant_id)
+    ).first()
+    if post is None:
+        raise HTTPException(status_code=404, detail="Post not found")
+    return post
+
+
 @router.get(
     "",
     dependencies=[Depends(require_permission("system:post:list"))],
@@ -25,13 +41,14 @@ router = APIRouter(prefix="/posts", tags=["posts"])
 )
 def read_posts(
     session: SessionDep,
+    tenant_context: CurrentTenant,
     page: int = 1,
     page_size: int = 20,
     keyword: str | None = None,
     is_active: bool | None = None,
 ) -> Any:
     page, page_size = normalize_pagination(page=page, page_size=page_size)
-    filters = []
+    filters = [Post.tenant_id == tenant_context.tenant_id]
     if keyword:
         pattern = f"%{keyword}%"
         filters.append(
@@ -69,12 +86,22 @@ def read_posts(
     dependencies=[Depends(require_permission("system:post:create"))],
     response_model=PostPublic,
 )
-def create_post(*, session: SessionDep, post_in: PostCreate) -> Any:
-    existing_post = session.exec(select(Post).where(Post.code == post_in.code)).first()
+def create_post(
+    *, session: SessionDep, tenant_context: CurrentTenant, post_in: PostCreate
+) -> Any:
+    existing_post = session.exec(
+        select(Post).where(
+            Post.tenant_id == tenant_context.tenant_id,
+            Post.code == post_in.code,
+        )
+    ).first()
     if existing_post:
         raise HTTPException(status_code=409, detail="Post code already exists")
 
-    post = Post.model_validate(post_in)
+    post = Post.model_validate(
+        post_in,
+        update={"tenant_id": tenant_context.tenant_id},
+    )
     session.add(post)
     session.commit()
     session.refresh(post)
@@ -87,13 +114,24 @@ def create_post(*, session: SessionDep, post_in: PostCreate) -> Any:
     response_model=PostPublic,
 )
 def update_post(
-    *, session: SessionDep, post_id: uuid.UUID, post_in: PostUpdate
+    *,
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    post_id: uuid.UUID,
+    post_in: PostUpdate,
 ) -> Any:
-    post = session.get(Post, post_id)
-    if not post:
-        raise HTTPException(status_code=404, detail="Post not found")
+    post = get_post_or_404(
+        session=session,
+        tenant_id=tenant_context.tenant_id,
+        post_id=post_id,
+    )
     if post_in.code and post_in.code != post.code:
-        existing_post = session.exec(select(Post).where(Post.code == post_in.code)).first()
+        existing_post = session.exec(
+            select(Post).where(
+                Post.tenant_id == tenant_context.tenant_id,
+                Post.code == post_in.code,
+            )
+        ).first()
         if existing_post:
             raise HTTPException(status_code=409, detail="Post code already exists")
 
@@ -110,12 +148,21 @@ def update_post(
     dependencies=[Depends(require_permission("system:post:delete"))],
     status_code=204,
 )
-def delete_post(*, session: SessionDep, post_id: uuid.UUID) -> Response:
-    post = session.get(Post, post_id)
-    if not post:
-        raise HTTPException(status_code=404, detail="Post not found")
+def delete_post(
+    *, session: SessionDep, tenant_context: CurrentTenant, post_id: uuid.UUID
+) -> Response:
+    post = get_post_or_404(
+        session=session,
+        tenant_id=tenant_context.tenant_id,
+        post_id=post_id,
+    )
 
-    bound_user = session.exec(select(UserPost).where(UserPost.post_id == post_id)).first()
+    bound_user = session.exec(
+        select(UserPost).where(
+            UserPost.tenant_id == tenant_context.tenant_id,
+            UserPost.post_id == post_id,
+        )
+    ).first()
     if bound_user:
         raise HTTPException(status_code=400, detail="Post has users")
 

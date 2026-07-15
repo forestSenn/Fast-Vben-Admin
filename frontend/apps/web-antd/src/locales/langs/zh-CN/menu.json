@@ -2,6 +2,9 @@
   "dashboard": "仪表盘",
   "infrastructure": "基础设施",
   "system": "系统管理",
+  "systemTenants": "租户管理",
+  "systemTenantPlans": "套餐管理",
+  "systemTenantTemplates": "初始化模板",
   "systemUsers": "用户管理",
   "systemRoles": "角色管理",
   "systemMenus": "菜单管理",
@@ -36,5 +39,6 @@
   "mailAccounts": "邮箱账号",
   "mailTemplates": "邮件模板",
   "mailLogs": "邮件日志",
-  "items": "业务示例"
+  "items": "业务示例",
+  "workflows": "流程工作台"
 }

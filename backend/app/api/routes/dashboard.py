@@ -70,7 +70,9 @@ def classify_user_agent(user_agent: str | None) -> str:
     return "其它"
 
 
-def count_since(session: Session, model: type, column_name: str, since: datetime) -> int:
+def count_since(
+    session: Session, model: type, column_name: str, since: datetime
+) -> int:
     created_at = getattr(model, column_name)
     statement = select(func.count()).select_from(model).where(col(created_at) >= since)
     return session.exec(statement).one()
@@ -80,9 +82,13 @@ def count_total(session: Session, model: type) -> int:
     return session.exec(select(func.count()).select_from(model)).one()
 
 
-def count_login_since(session: Session, since: datetime, *, success_only: bool = False) -> int:
-    statement = select(func.count()).select_from(LoginLog).where(
-        col(LoginLog.created_at) >= since
+def count_login_since(
+    session: Session, since: datetime, *, success_only: bool = False
+) -> int:
+    statement = (
+        select(func.count())
+        .select_from(LoginLog)
+        .where(col(LoginLog.created_at) >= since)
     )
     if success_only:
         statement = statement.where(LoginLog.status == "success")
@@ -96,7 +102,9 @@ def count_login_total(session: Session, *, success_only: bool = False) -> int:
     return session.exec(statement).one()
 
 
-def get_hourly_trends(session: Session, day_start: datetime) -> list[DashboardHourlyTrend]:
+def get_hourly_trends(
+    session: Session, day_start: datetime
+) -> list[DashboardHourlyTrend]:
     day_end = day_start + timedelta(days=1)
     login_rows = session.exec(
         select(

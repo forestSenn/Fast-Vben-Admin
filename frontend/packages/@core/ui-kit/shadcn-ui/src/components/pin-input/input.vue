@@ -99,8 +99,8 @@ const pinType = 'text' as const;
     :type="pinType"
     @complete="handleComplete"
   >
-    <div class="relative flex w-full">
-      <PinInputGroup class="mr-2">
+    <div class="relative flex w-full flex-col gap-2 sm:flex-row sm:gap-0">
+      <PinInputGroup class="w-full justify-center sm:mr-2 sm:w-auto">
         <PinInputSlot
           v-for="(item, index) in codeLength"
           :key="item"
@@ -110,7 +110,7 @@ const pinType = 'text' as const;
       <VbenButton
         :disabled="disabled"
         :loading="btnLoading"
-        class="grow"
+        class="w-full shrink-0 sm:w-32"
         size="lg"
         variant="outline"
         @click="handleSend"

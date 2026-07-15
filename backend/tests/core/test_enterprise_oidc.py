@@ -27,7 +27,7 @@ class FakeResponse:
 
 
 def test_identity_token_requires_matching_signature_audience_issuer_and_nonce(
-    monkeypatch
+    monkeypatch,
 ) -> None:
     issuer = "https://idp.example.test"
     client_id = "enterprise-client"

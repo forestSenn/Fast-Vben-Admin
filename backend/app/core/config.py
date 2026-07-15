@@ -87,6 +87,10 @@ class Settings(BaseSettings):
     LOGIN_CAPTCHA_ENABLED: bool = True
     LOGIN_CAPTCHA_THRESHOLD: int = 3
     LOGIN_CAPTCHA_TTL_SECONDS: int = 300
+    SMS_CODE_TTL_SECONDS: int = 300
+    SMS_CODE_RESEND_SECONDS: int = 60
+    SMS_CODE_MAX_ATTEMPTS: int = 5
+    SMS_CODE_SEND_MAX_PER_IP: int = 10
     MFA_TOTP_ENABLED: bool = True
     MFA_TOTP_ISSUER: str = "Fast Vben Admin"
     MFA_TOTP_VALID_WINDOW: int = 1
@@ -109,6 +113,7 @@ class Settings(BaseSettings):
     ENTERPRISE_OIDC_HTTP_TIMEOUT_SECONDS: float = 5.0
     METRICS_ENABLED: bool = True
     METRICS_AUTH_TOKEN: str | None = None
+    BPM_ENABLED: bool = False
 
     @model_validator(mode="after")
     def _set_default_emails_from(self) -> Self:

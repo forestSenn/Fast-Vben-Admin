@@ -2,6 +2,9 @@
   "dashboard": "Dashboard",
   "infrastructure": "Infrastructure",
   "system": "System",
+  "systemTenants": "Tenants",
+  "systemTenantPlans": "Plans",
+  "systemTenantTemplates": "Initialization Templates",
   "systemUsers": "Users",
   "systemRoles": "Roles",
   "systemMenus": "Menus",
@@ -36,5 +39,6 @@
   "mailAccounts": "Mail Accounts",
   "mailTemplates": "Mail Templates",
   "mailLogs": "Mail Logs",
-  "items": "Sample Items"
+  "items": "Sample Items",
+  "workflows": "Workflow Workbench"
 }

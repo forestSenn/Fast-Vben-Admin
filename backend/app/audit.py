@@ -11,6 +11,7 @@ from sqlmodel import Session
 from app.core import security
 from app.core.config import settings
 from app.core.db import engine
+from app.core.tenancy import DEFAULT_TENANT_ID
 from app.models import LoginLog, OperationLog, TokenPayload, User
 
 SENSITIVE_PATH_PARTS = (
@@ -40,10 +41,12 @@ def create_login_log(
     email: str,
     status: str,
     user: User | None = None,
+    tenant_id: UUID = DEFAULT_TENANT_ID,
     failure_reason: str | None = None,
 ) -> None:
     session.add(
         LoginLog(
+            tenant_id=tenant_id,
             user_id=user.id if user else None,
             email=email,
             ip=get_client_ip(request),
@@ -68,10 +71,12 @@ def should_log_operation(request: Request) -> bool:
     return True
 
 
-def parse_token_user(session: Session, request: Request) -> tuple[str | None, UUID | None]:
+def parse_token_user(
+    session: Session, request: Request
+) -> tuple[str | None, UUID | None, UUID]:
     authorization = request.headers.get("authorization")
     if not authorization or not authorization.lower().startswith("bearer "):
-        return None, None
+        return None, None, DEFAULT_TENANT_ID
 
     token = authorization.split(" ", 1)[1]
     try:
@@ -81,16 +86,16 @@ def parse_token_user(session: Session, request: Request) -> tuple[str | None, UU
             algorithms=[security.ALGORITHM],
         )
         token_data = TokenPayload(**payload)
-    except (InvalidTokenError, ValidationError):
-        return None, None
+    except InvalidTokenError, ValidationError:
+        return None, None, DEFAULT_TENANT_ID
 
     if not token_data.sub:
-        return None, None
+        return None, None, DEFAULT_TENANT_ID
 
     user = session.get(User, token_data.sub)
     if not user:
-        return None, None
-    return user.email, user.id
+        return None, None, DEFAULT_TENANT_ID
+    return user.email, user.id, token_data.tenant_id or DEFAULT_TENANT_ID
 
 
 def get_operation_module(path: str) -> str:
@@ -123,9 +128,13 @@ async def audit_operation_middleware(
     finally:
         duration_ms = int((time.perf_counter() - started_at) * 1000)
         with Session(engine) as session:
-            email, user_id = parse_token_user(session=session, request=request)
+            email, user_id, tenant_id = parse_token_user(
+                session=session,
+                request=request,
+            )
             session.add(
                 OperationLog(
+                    tenant_id=tenant_id,
                     user_id=user_id,
                     email=email,
                     module=get_operation_module(request.url.path),

@@ -14,7 +14,7 @@ test('admin can upload, download, and delete a file', async ({ page }, testInfo)
   await fs.writeFile(filePath, 'file content from e2e');
 
   await loginAsAdmin(page);
-  await page.goto('/files');
+  await page.goto('/basic-settings/files/list');
 
   await page.getByRole('button', { name: '上传文件' }).click();
   const uploadDialog = page.getByRole('dialog', { name: '上传文件' });

@@ -3,7 +3,27 @@ import type { OnActionClickFn, VxeTableGridColumns } from '#/adapter/vxe-table';
 import type { RoleRecord } from '#/api';
 
 import { z } from '#/adapter/form';
+import { listDepartmentsApi } from '#/api';
 import { $t } from '#/locales';
+
+import { buildDepartmentTree } from '../shared/utils';
+
+const dataScopeOptions = () => [
+  { label: $t('system.role.dataScopeAll'), value: 'all' },
+  { label: $t('system.role.dataScopeDepartment'), value: 'department' },
+  {
+    label: $t('system.role.dataScopeDepartmentChildren'),
+    value: 'department_and_children',
+  },
+  { label: $t('system.role.dataScopeSelf'), value: 'self' },
+  { label: $t('system.role.dataScopeCustom'), value: 'custom' },
+];
+
+function formatDataScope(value?: null | string) {
+  return (
+    dataScopeOptions().find((option) => option.value === value)?.label ?? '-'
+  );
+}
 
 export function useFormSchema(): VbenFormSchema[] {
   return [
@@ -33,6 +53,37 @@ export function useFormSchema(): VbenFormSchema[] {
       },
       fieldName: 'description',
       label: $t('system.role.remark'),
+    },
+    {
+      component: 'Select',
+      componentProps: {
+        options: dataScopeOptions(),
+      },
+      defaultValue: 'self',
+      fieldName: 'data_scope',
+      label: $t('system.role.dataScope'),
+    },
+    {
+      component: 'ApiTreeSelect',
+      componentProps: {
+        allowClear: true,
+        api: async () => {
+          const result = await listDepartmentsApi({ page: 1, page_size: 500 });
+          return buildDepartmentTree(result.items);
+        },
+        childrenField: 'children',
+        class: 'w-full',
+        labelField: 'name',
+        multiple: true,
+        treeCheckable: true,
+        valueField: 'id',
+      },
+      dependencies: {
+        show: (values) => values.data_scope === 'custom',
+        triggerFields: ['data_scope'],
+      },
+      fieldName: 'custom_department_ids',
+      label: $t('system.role.customDepartments'),
     },
     {
       component: 'InputNumber',
@@ -115,6 +166,12 @@ export function useColumns(
       field: 'code',
       minWidth: 160,
       title: $t('system.role.roleCode'),
+    },
+    {
+      field: 'data_scope',
+      formatter: ({ cellValue }) => formatDataScope(cellValue),
+      minWidth: 150,
+      title: $t('system.role.dataScope'),
     },
     {
       cellRender: {

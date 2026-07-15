@@ -5,7 +5,12 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlmodel import col, func, or_, select
 
-from app.api.deps import SessionDep, normalize_pagination, require_permission
+from app.api.deps import (
+    CurrentTenant,
+    SessionDep,
+    normalize_pagination,
+    require_permission,
+)
 from app.mail import get_template_params, render_template
 from app.models import (
     SiteMessagePublic,
@@ -16,6 +21,7 @@ from app.models import (
     SiteMessageTemplatePublic,
     SiteMessageTemplatesPublic,
     SiteMessageTemplateUpdate,
+    TenantMembership,
     User,
     UserMessage,
     get_datetime_utc,
@@ -25,9 +31,16 @@ router = APIRouter(prefix="/site-messages", tags=["site-messages"])
 
 
 def ensure_template_code_unique(
-    *, session: SessionDep, code: str, exclude_id: uuid.UUID | None = None
+    *,
+    session: SessionDep,
+    tenant_id: uuid.UUID,
+    code: str,
+    exclude_id: uuid.UUID | None = None,
 ) -> None:
-    statement = select(SiteMessageTemplate).where(SiteMessageTemplate.code == code)
+    statement = select(SiteMessageTemplate).where(
+        SiteMessageTemplate.tenant_id == tenant_id,
+        SiteMessageTemplate.code == code,
+    )
     if exclude_id:
         statement = statement.where(SiteMessageTemplate.id != exclude_id)
     if session.exec(statement).first():
@@ -35,6 +48,23 @@ def ensure_template_code_unique(
             status_code=409,
             detail="Site message template code already exists",
         )
+
+
+def get_template_or_404(
+    *,
+    session: SessionDep,
+    tenant_id: uuid.UUID,
+    template_id: uuid.UUID,
+) -> SiteMessageTemplate:
+    template = session.exec(
+        select(SiteMessageTemplate).where(
+            SiteMessageTemplate.id == template_id,
+            SiteMessageTemplate.tenant_id == tenant_id,
+        )
+    ).first()
+    if template is None:
+        raise HTTPException(status_code=404, detail="Site message template not found")
+    return template
 
 
 def validate_template_params(
@@ -66,6 +96,7 @@ def to_site_message_public(
 )
 def read_site_message_templates(
     session: SessionDep,
+    tenant_context: CurrentTenant,
     page: int = 1,
     page_size: int = 20,
     keyword: str | None = None,
@@ -73,7 +104,7 @@ def read_site_message_templates(
     is_active: bool | None = None,
 ) -> Any:
     page, page_size = normalize_pagination(page=page, page_size=page_size)
-    filters = []
+    filters = [SiteMessageTemplate.tenant_id == tenant_context.tenant_id]
     if keyword:
         pattern = f"%{keyword}%"
         filters.append(
@@ -104,8 +135,7 @@ def read_site_message_templates(
     ).all()
     return SiteMessageTemplatesPublic(
         items=[
-            SiteMessageTemplatePublic.model_validate(template)
-            for template in templates
+            SiteMessageTemplatePublic.model_validate(template) for template in templates
         ],
         total=count,
         page=page,
@@ -119,12 +149,22 @@ def read_site_message_templates(
     response_model=SiteMessageTemplatePublic,
 )
 def create_site_message_template(
-    *, session: SessionDep, template_in: SiteMessageTemplateCreate
+    *,
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    template_in: SiteMessageTemplateCreate,
 ) -> SiteMessageTemplatePublic:
-    ensure_template_code_unique(session=session, code=template_in.code)
+    ensure_template_code_unique(
+        session=session,
+        tenant_id=tenant_context.tenant_id,
+        code=template_in.code,
+    )
     template = SiteMessageTemplate.model_validate(
         template_in,
-        update={"params": get_template_params(template_in.content)},
+        update={
+            "params": get_template_params(template_in.content),
+            "tenant_id": tenant_context.tenant_id,
+        },
     )
     session.add(template)
     session.commit()
@@ -140,16 +180,20 @@ def create_site_message_template(
 def update_site_message_template(
     *,
     session: SessionDep,
+    tenant_context: CurrentTenant,
     template_id: uuid.UUID,
     template_in: SiteMessageTemplateUpdate,
 ) -> SiteMessageTemplatePublic:
-    template = session.get(SiteMessageTemplate, template_id)
-    if not template:
-        raise HTTPException(status_code=404, detail="Site message template not found")
+    template = get_template_or_404(
+        session=session,
+        tenant_id=tenant_context.tenant_id,
+        template_id=template_id,
+    )
     update_data = template_in.model_dump(exclude_unset=True)
     if "code" in update_data and update_data["code"] != template.code:
         ensure_template_code_unique(
             session=session,
+            tenant_id=tenant_context.tenant_id,
             code=update_data["code"],
             exclude_id=template.id,
         )
@@ -169,13 +213,21 @@ def update_site_message_template(
     status_code=204,
 )
 def delete_site_message_template(
-    *, session: SessionDep, template_id: uuid.UUID
+    *,
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    template_id: uuid.UUID,
 ) -> Response:
-    template = session.get(SiteMessageTemplate, template_id)
-    if not template:
-        raise HTTPException(status_code=404, detail="Site message template not found")
+    template = get_template_or_404(
+        session=session,
+        tenant_id=tenant_context.tenant_id,
+        template_id=template_id,
+    )
     messages = session.exec(
-        select(UserMessage).where(UserMessage.template_id == template_id)
+        select(UserMessage).where(
+            UserMessage.tenant_id == tenant_context.tenant_id,
+            UserMessage.template_id == template_id,
+        )
     ).all()
     for message in messages:
         message.template_id = None
@@ -193,15 +245,27 @@ def delete_site_message_template(
 def send_test_site_message(
     *,
     session: SessionDep,
+    tenant_context: CurrentTenant,
     template_id: uuid.UUID,
     send_in: SiteMessageSendRequest,
 ) -> SiteMessagePublic:
-    template = session.get(SiteMessageTemplate, template_id)
-    if not template:
-        raise HTTPException(status_code=404, detail="Site message template not found")
+    template = get_template_or_404(
+        session=session,
+        tenant_id=tenant_context.tenant_id,
+        template_id=template_id,
+    )
     if not template.is_active:
         raise HTTPException(status_code=400, detail="Site message template is disabled")
-    user = session.get(User, send_in.user_id)
+    user = session.exec(
+        select(User)
+        .join(TenantMembership, TenantMembership.user_id == User.id)
+        .where(
+            User.id == send_in.user_id,
+            User.is_active,
+            TenantMembership.tenant_id == tenant_context.tenant_id,
+            TenantMembership.is_active,
+        )
+    ).first()
     if not user or not user.is_active:
         raise HTTPException(status_code=404, detail="User not found")
     validate_template_params(
@@ -210,6 +274,7 @@ def send_test_site_message(
     )
     content = render_template(template.content, send_in.template_params)
     message = UserMessage(
+        tenant_id=tenant_context.tenant_id,
         user_id=user.id,
         template_id=template.id,
         template_code=template.code,
@@ -237,6 +302,7 @@ def send_test_site_message(
 )
 def read_site_messages(
     session: SessionDep,
+    tenant_context: CurrentTenant,
     page: int = 1,
     page_size: int = 20,
     keyword: str | None = None,
@@ -246,7 +312,7 @@ def read_site_messages(
     is_read: bool | None = None,
 ) -> Any:
     page, page_size = normalize_pagination(page=page, page_size=page_size)
-    filters = []
+    filters = [UserMessage.tenant_id == tenant_context.tenant_id]
     if keyword:
         pattern = f"%{keyword}%"
         filters.append(
@@ -301,8 +367,18 @@ def read_site_messages(
     dependencies=[Depends(require_permission("system:site-message:delete"))],
     status_code=204,
 )
-def delete_site_message(*, session: SessionDep, message_id: uuid.UUID) -> Response:
-    message = session.get(UserMessage, message_id)
+def delete_site_message(
+    *,
+    session: SessionDep,
+    tenant_context: CurrentTenant,
+    message_id: uuid.UUID,
+) -> Response:
+    message = session.exec(
+        select(UserMessage).where(
+            UserMessage.id == message_id,
+            UserMessage.tenant_id == tenant_context.tenant_id,
+        )
+    ).first()
     if not message:
         raise HTTPException(status_code=404, detail="Site message not found")
     session.delete(message)
