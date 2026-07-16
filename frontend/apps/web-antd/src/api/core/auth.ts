@@ -2,6 +2,13 @@ import type {
   LoginCaptchaChallenge as FastApiLoginCaptchaChallenge,
   Message,
   NewPassword,
+  QrCodeLoginChallenge,
+  QrCodeLoginConfirmRequest,
+  QrCodeLoginConfirmResult,
+  QrCodeLoginCreate,
+  QrCodeLoginExchangeRequest,
+  QrCodeLoginStatus,
+  QrCodeLoginStatusRequest,
   RegistrationStatus,
   SmsCodeRequest,
   SmsCodeSent,
@@ -60,6 +67,20 @@ export namespace AuthApi {
   export type TenantRegistrationPayload = TenantRegistrationRequest;
 
   export type RegistrationStatusResult = RegistrationStatus;
+
+  export type QrLoginCreatePayload = QrCodeLoginCreate;
+
+  export type QrLoginChallenge = QrCodeLoginChallenge;
+
+  export type QrLoginStatusPayload = QrCodeLoginStatusRequest;
+
+  export type QrLoginStatusResult = QrCodeLoginStatus;
+
+  export type QrLoginConfirmPayload = QrCodeLoginConfirmRequest;
+
+  export type QrLoginConfirmResult = QrCodeLoginConfirmResult;
+
+  export type QrLoginExchangePayload = QrCodeLoginExchangeRequest;
 
   export interface MfaStatus {
     confirmed_at?: null | string;
@@ -224,6 +245,40 @@ export async function registerTenantApi(
   return {
     accessToken: token.access_token,
   };
+}
+
+export function createQrCodeLoginApi(data: AuthApi.QrLoginCreatePayload) {
+  return requestClient.post<AuthApi.QrLoginChallenge>('/login/qr-code', data);
+}
+
+export function getQrCodeLoginStatusApi(
+  data: AuthApi.QrLoginStatusPayload,
+) {
+  return requestClient.post<AuthApi.QrLoginStatusResult>(
+    '/login/qr-code/status',
+    data,
+    { skipErrorMessage: true },
+  );
+}
+
+export function confirmQrCodeLoginApi(
+  data: AuthApi.QrLoginConfirmPayload,
+) {
+  return requestClient.post<AuthApi.QrLoginConfirmResult>(
+    '/login/qr-code/confirm',
+    data,
+  );
+}
+
+export async function exchangeQrCodeLoginApi(
+  data: AuthApi.QrLoginExchangePayload,
+) {
+  const token = await requestClient.post<AuthApi.FastApiToken>(
+    '/login/qr-code/exchange',
+    data,
+    { skipErrorMessage: true },
+  );
+  return { accessToken: token.access_token };
 }
 
 export function getEnterpriseOidcStatusApi() {

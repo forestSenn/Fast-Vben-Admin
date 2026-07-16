@@ -2559,6 +2559,112 @@ export type PrivateUserCreate = {
 };
 
 /**
+ * QrCodeLoginChallenge
+ */
+export type QrCodeLoginChallenge = {
+    /**
+     * Challenge Id
+     */
+    challenge_id: string;
+    /**
+     * Scan Token
+     */
+    scan_token: string;
+    /**
+     * Poll Token
+     */
+    poll_token: string;
+    /**
+     * Expires In
+     */
+    expires_in: number;
+};
+
+/**
+ * QrCodeLoginConfirmRequest
+ */
+export type QrCodeLoginConfirmRequest = {
+    /**
+     * Challenge Id
+     */
+    challenge_id: string;
+    /**
+     * Scan Token
+     */
+    scan_token: string;
+};
+
+/**
+ * QrCodeLoginConfirmResult
+ */
+export type QrCodeLoginConfirmResult = {
+    /**
+     * Message
+     */
+    message: string;
+    /**
+     * Tenant Name
+     */
+    tenant_name: string;
+    /**
+     * User Name
+     */
+    user_name: string;
+};
+
+/**
+ * QrCodeLoginCreate
+ */
+export type QrCodeLoginCreate = {
+    /**
+     * Tenant Code
+     */
+    tenant_code: string;
+};
+
+/**
+ * QrCodeLoginExchangeRequest
+ */
+export type QrCodeLoginExchangeRequest = {
+    /**
+     * Challenge Id
+     */
+    challenge_id: string;
+    /**
+     * Poll Token
+     */
+    poll_token: string;
+};
+
+/**
+ * QrCodeLoginStatus
+ */
+export type QrCodeLoginStatus = {
+    /**
+     * Status
+     */
+    status: 'pending' | 'confirmed';
+    /**
+     * Expires In
+     */
+    expires_in: number;
+};
+
+/**
+ * QrCodeLoginStatusRequest
+ */
+export type QrCodeLoginStatusRequest = {
+    /**
+     * Challenge Id
+     */
+    challenge_id: string;
+    /**
+     * Poll Token
+     */
+    poll_token: string;
+};
+
+/**
  * RegistrationStatus
  */
 export type RegistrationStatus = {
@@ -5300,6 +5406,106 @@ export type WorkflowVersionPublic = {
  * WorkflowVersionStatus
  */
 export type WorkflowVersionStatus = 'draft' | 'published' | 'retired';
+
+export type LoginCreateQrCodeLoginData = {
+    body: QrCodeLoginCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/login/qr-code';
+};
+
+export type LoginCreateQrCodeLoginErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LoginCreateQrCodeLoginError = LoginCreateQrCodeLoginErrors[keyof LoginCreateQrCodeLoginErrors];
+
+export type LoginCreateQrCodeLoginResponses = {
+    /**
+     * Successful Response
+     */
+    200: QrCodeLoginChallenge;
+};
+
+export type LoginCreateQrCodeLoginResponse = LoginCreateQrCodeLoginResponses[keyof LoginCreateQrCodeLoginResponses];
+
+export type LoginReadQrCodeLoginStatusData = {
+    body: QrCodeLoginStatusRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/login/qr-code/status';
+};
+
+export type LoginReadQrCodeLoginStatusErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LoginReadQrCodeLoginStatusError = LoginReadQrCodeLoginStatusErrors[keyof LoginReadQrCodeLoginStatusErrors];
+
+export type LoginReadQrCodeLoginStatusResponses = {
+    /**
+     * Successful Response
+     */
+    200: QrCodeLoginStatus;
+};
+
+export type LoginReadQrCodeLoginStatusResponse = LoginReadQrCodeLoginStatusResponses[keyof LoginReadQrCodeLoginStatusResponses];
+
+export type LoginConfirmQrCodeLoginData = {
+    body: QrCodeLoginConfirmRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/login/qr-code/confirm';
+};
+
+export type LoginConfirmQrCodeLoginErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LoginConfirmQrCodeLoginError = LoginConfirmQrCodeLoginErrors[keyof LoginConfirmQrCodeLoginErrors];
+
+export type LoginConfirmQrCodeLoginResponses = {
+    /**
+     * Successful Response
+     */
+    200: QrCodeLoginConfirmResult;
+};
+
+export type LoginConfirmQrCodeLoginResponse = LoginConfirmQrCodeLoginResponses[keyof LoginConfirmQrCodeLoginResponses];
+
+export type LoginExchangeQrCodeLoginData = {
+    body: QrCodeLoginExchangeRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/login/qr-code/exchange';
+};
+
+export type LoginExchangeQrCodeLoginErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LoginExchangeQrCodeLoginError = LoginExchangeQrCodeLoginErrors[keyof LoginExchangeQrCodeLoginErrors];
+
+export type LoginExchangeQrCodeLoginResponses = {
+    /**
+     * Successful Response
+     */
+    200: Token;
+};
+
+export type LoginExchangeQrCodeLoginResponse = LoginExchangeQrCodeLoginResponses[keyof LoginExchangeQrCodeLoginResponses];
 
 export type LoginSendLoginSmsCodeData = {
     body: SmsCodeRequest;

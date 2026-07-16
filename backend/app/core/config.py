@@ -91,6 +91,7 @@ class Settings(BaseSettings):
     SMS_CODE_RESEND_SECONDS: int = 60
     SMS_CODE_MAX_ATTEMPTS: int = 5
     SMS_CODE_SEND_MAX_PER_IP: int = 10
+    QR_CODE_LOGIN_TTL_SECONDS: int = 180
     MFA_TOTP_ENABLED: bool = True
     MFA_TOTP_ISSUER: str = "Fast Vben Admin"
     MFA_TOTP_VALID_WINDOW: int = 1

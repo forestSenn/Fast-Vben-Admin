@@ -58,7 +58,14 @@ class TenantPlan(TenantPlanBase, table=True):
 
 
 class TenantPlanCreate(TenantPlanBase):
-    pass
+    type: int = 0
+    logo: str | None = Field(default=None, max_length=500)
+    price: float = Field(default=0, ge=0)
+    published: int = 0
+    order_num: int = Field(default=1, ge=0)
+    subscription_num: int = Field(default=0, ge=0)
+    subscription_total_amount: float = Field(default=0, ge=0)
+    remark: str | None = Field(default=None, max_length=500)
 
 
 class TenantPlanUpdate(SQLModel):
@@ -70,12 +77,28 @@ class TenantPlanUpdate(SQLModel):
     max_storage_bytes: int | None = Field(default=None, ge=1)
     is_default: bool | None = None
     is_active: bool | None = None
+    type: int | None = None
+    logo: str | None = Field(default=None, max_length=500)
+    price: float | None = Field(default=None, ge=0)
+    published: int | None = None
+    order_num: int | None = Field(default=None, ge=0)
+    subscription_num: int | None = Field(default=None, ge=0)
+    subscription_total_amount: float | None = Field(default=None, ge=0)
+    remark: str | None = Field(default=None, max_length=500)
 
 
 class TenantPlanPublic(TenantPlanBase):
     id: uuid.UUID
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    type: int = 0
+    logo: str | None = None
+    price: float = 0
+    published: int = 0
+    order_num: int = 1
+    subscription_num: int = 0
+    subscription_total_amount: float = 0
+    remark: str | None = None
 
 
 class TenantPlansPublic(SQLModel):
@@ -189,11 +212,36 @@ class TenantPublic(TenantBase):
     initialization_template_name: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    contact_user_id: uuid.UUID | None = None
+    contact_name: str | None = None
+    contact_mobile: str | None = None
+    industry: int | None = None
+    type: int | None = None
+    address_code: str | None = None
+    address_detail: str | None = None
+    qualifications: str | None = None
+    website: str | None = None
+    recharge_amount: float = 0
+    payment_amount: float = 0
+    balance_amount: float = 0
+    account_count: int | None = None
+    current_account_count: int = 0
 
 
 class TenantCreate(TenantBase):
     plan_id: uuid.UUID | None = None
     initialization_template_id: uuid.UUID | None = None
+    contact_name: str | None = Field(default=None, max_length=100)
+    contact_mobile: str | None = Field(default=None, max_length=32)
+    industry: int | None = None
+    type: int | None = None
+    address_code: str | None = Field(default=None, max_length=100)
+    address_detail: str | None = Field(default=None, max_length=255)
+    qualifications: str | None = Field(default=None, max_length=500)
+    website: str | None = Field(default=None, max_length=255)
+    account_count: int | None = Field(default=None, ge=0)
+    username: str | None = Field(default=None, max_length=255)
+    password: str | None = Field(default=None, min_length=8, max_length=128)
 
 
 class TenantUpdate(SQLModel):
@@ -202,6 +250,15 @@ class TenantUpdate(SQLModel):
     description: str | None = Field(default=None, max_length=500)
     is_active: bool | None = None
     plan_id: uuid.UUID | None = None
+    contact_name: str | None = Field(default=None, max_length=100)
+    contact_mobile: str | None = Field(default=None, max_length=32)
+    industry: int | None = None
+    type: int | None = None
+    address_code: str | None = Field(default=None, max_length=100)
+    address_detail: str | None = Field(default=None, max_length=255)
+    qualifications: str | None = Field(default=None, max_length=500)
+    website: str | None = Field(default=None, max_length=255)
+    account_count: int | None = Field(default=None, ge=0)
 
 
 class TenantsPublic(SQLModel):
@@ -229,6 +286,72 @@ class TenantUsagePublic(SQLModel):
     members: int
     file_assets: int
     storage_bytes: int
+
+
+class TenantProfile(SQLModel, table=True):
+    tenant_id: uuid.UUID = Field(
+        foreign_key="tenant.id", primary_key=True, ondelete="CASCADE"
+    )
+    contact_user_id: uuid.UUID | None = Field(default=None, foreign_key="user.id")
+    contact_name: str | None = Field(default=None, max_length=100)
+    contact_mobile: str | None = Field(default=None, max_length=32)
+    industry: int | None = None
+    tenant_type: int | None = None
+    address_code: str | None = Field(default=None, max_length=100)
+    address_detail: str | None = Field(default=None, max_length=255)
+    qualifications: str | None = Field(default=None, max_length=500)
+    website: str | None = Field(default=None, max_length=255)
+    recharge_amount: float = 0
+    payment_amount: float = 0
+    balance_amount: float = 0
+    account_count: int | None = Field(default=None, ge=0)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    updated_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class TenantPlanProfile(SQLModel, table=True):
+    plan_id: uuid.UUID = Field(
+        foreign_key="tenantplan.id", primary_key=True, ondelete="CASCADE"
+    )
+    package_type: int = 0
+    logo: str | None = Field(default=None, max_length=500)
+    price: float = Field(default=0, ge=0)
+    published: int = 0
+    order_num: int = Field(default=1, ge=0)
+    subscription_num: int = Field(default=0, ge=0)
+    subscription_total_amount: float = Field(default=0, ge=0)
+    remark: str | None = Field(default=None, max_length=500)
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    updated_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class TenantPlanMenu(SQLModel, table=True):
+    plan_id: uuid.UUID = Field(
+        foreign_key="tenantplan.id", primary_key=True, ondelete="CASCADE"
+    )
+    menu_id: uuid.UUID = Field(
+        foreign_key="menu.id", primary_key=True, ondelete="CASCADE"
+    )
+    created_at: datetime | None = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+
+
+class TenantPlanMenuUpdate(SQLModel):
+    menu_ids: list[uuid.UUID]
 
 
 class WorkflowVersionStatus(StrEnum):
@@ -615,6 +738,43 @@ class SmsLoginRequest(SQLModel):
 
 class RegistrationStatus(SQLModel):
     enabled: bool
+
+
+class QrCodeLoginCreate(SQLModel):
+    tenant_code: str = Field(min_length=1, max_length=100)
+
+
+class QrCodeLoginChallenge(SQLModel):
+    challenge_id: uuid.UUID
+    scan_token: str
+    poll_token: str
+    expires_in: int
+
+
+class QrCodeLoginStatusRequest(SQLModel):
+    challenge_id: uuid.UUID
+    poll_token: str = Field(min_length=32, max_length=255)
+
+
+class QrCodeLoginStatus(SQLModel):
+    status: Literal["pending", "confirmed"]
+    expires_in: int
+
+
+class QrCodeLoginConfirmRequest(SQLModel):
+    challenge_id: uuid.UUID
+    scan_token: str = Field(min_length=32, max_length=255)
+
+
+class QrCodeLoginConfirmResult(SQLModel):
+    message: str
+    tenant_name: str
+    user_name: str
+
+
+class QrCodeLoginExchangeRequest(SQLModel):
+    challenge_id: uuid.UUID
+    poll_token: str = Field(min_length=32, max_length=255)
 
 
 class TenantRegistrationRequest(SQLModel):

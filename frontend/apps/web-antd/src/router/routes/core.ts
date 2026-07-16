@@ -84,6 +84,15 @@ const coreRoutes: RouteRecordRaw[] = [
         },
       },
       {
+        name: 'QrCodeLoginConfirm',
+        path: 'qrcode-confirm',
+        component: () =>
+          import('#/views/_core/authentication/qrcode-confirm.vue'),
+        meta: {
+          title: '确认扫码登录',
+        },
+      },
+      {
         name: 'Register',
         path: 'register',
         component: () =>

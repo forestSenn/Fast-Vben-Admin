@@ -194,7 +194,6 @@ onMounted(async () => {
     :show-register="registrationEnabled"
     :show-third-party-login="false"
     sub-title="请输入您的账户信息以开始管理项目"
-    title="欢迎回来"
     @submit="handleSubmit"
   >
     <template #third-party-login>

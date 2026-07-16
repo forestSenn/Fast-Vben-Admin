@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { $t } from '@vben/locales';
@@ -39,11 +39,21 @@ interface Props {
    * @zh_CN 是否显示返回按钮
    */
   showBack?: boolean;
+  /**
+   * @zh_CN 二维码内容
+   */
+  qrCodeValue?: string;
+  /**
+   * @zh_CN 二维码是否已过期
+   */
+  expired?: boolean;
 }
 
 defineOptions({
   name: 'AuthenticationQrCodeLogin',
 });
+
+const emit = defineEmits<{ refresh: [] }>();
 
 const props = withDefaults(defineProps<Props>(), {
   description: '',
@@ -53,13 +63,13 @@ const props = withDefaults(defineProps<Props>(), {
   submitButtonText: '',
   subTitle: '',
   title: '',
+  qrCodeValue: 'https://vben.vvbin.cn',
+  expired: false,
 });
 
 const router = useRouter();
 
-const text = ref('https://vben.vvbin.cn');
-
-const qrcode = useQRCode(text, {
+const qrcode = useQRCode(computed(() => props.qrCodeValue), {
   errorCorrectionLevel: 'H',
   margin: 4,
 });
@@ -70,7 +80,7 @@ function goToLogin() {
 </script>
 
 <template>
-  <div>
+  <div class="mx-auto w-full max-w-md">
     <Title>
       <slot name="title">
         {{ title || $t('authentication.welcomeBack') }} 📱
@@ -85,7 +95,22 @@ function goToLogin() {
     </Title>
 
     <div class="mt-6 flex-col-center">
-      <img :src="qrcode" alt="qrcode" class="w-1/2" />
+      <div class="relative flex w-1/2 items-center justify-center">
+        <img
+          :class="{ 'opacity-20': expired || loading }"
+          :src="qrcode"
+          alt="qrcode"
+          class="w-full"
+        />
+        <VbenButton
+          v-if="expired"
+          class="absolute"
+          size="sm"
+          @click="emit('refresh')"
+        >
+          重新获取
+        </VbenButton>
+      </div>
       <p class="mt-4 text-sm text-muted-foreground">
         <slot name="description">
           {{ description || $t('authentication.qrcodePrompt') }}

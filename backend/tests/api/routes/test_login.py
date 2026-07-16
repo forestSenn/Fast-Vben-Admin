@@ -59,6 +59,131 @@ def test_login_rejects_unknown_tenant_code(client: TestClient) -> None:
     assert response.json()["code"] == "TENANT_MEMBERSHIP_REQUIRED"
 
 
+def test_qr_code_login_is_confirmed_and_exchanged_once(
+    client: TestClient,
+    db: Session,
+    monkeypatch,
+) -> None:
+    cache_store: dict[str, dict[str, object]] = {}
+
+    def fake_set_json(
+        key: str, value: object, *, ttl_seconds: int | None = None
+    ) -> bool:
+        _ = ttl_seconds
+        assert isinstance(value, dict)
+        cache_store[key] = value.copy()
+        return True
+
+    def fake_compare_and_set_json(
+        key: str, *, expected: dict[str, object], value: object
+    ) -> bool:
+        current = cache_store.get(key)
+        if current is None or any(current.get(k) != v for k, v in expected.items()):
+            return False
+        assert isinstance(value, dict)
+        cache_store[key] = value.copy()
+        return True
+
+    def fake_consume_json_if(key: str, *, expected: dict[str, object]) -> object | None:
+        current = cache_store.get(key)
+        if current is None or any(current.get(k) != v for k, v in expected.items()):
+            return None
+        return cache_store.pop(key)
+
+    monkeypatch.setattr(redis_cache, "is_enabled", lambda: True)
+    monkeypatch.setattr(redis_cache, "set_json", fake_set_json)
+    monkeypatch.setattr(redis_cache, "get_json", lambda key: cache_store.get(key))
+    monkeypatch.setattr(redis_cache, "compare_and_set_json", fake_compare_and_set_json)
+    monkeypatch.setattr(redis_cache, "consume_json_if", fake_consume_json_if)
+
+    created = client.post(
+        f"{settings.API_V1_STR}/login/qr-code",
+        json={"tenant_code": DEFAULT_TENANT_CODE},
+    )
+    assert created.status_code == 200
+    challenge = created.json()
+    poll_body = {
+        "challenge_id": challenge["challenge_id"],
+        "poll_token": challenge["poll_token"],
+    }
+    pending = client.post(f"{settings.API_V1_STR}/login/qr-code/status", json=poll_body)
+    assert pending.status_code == 200
+    assert pending.json()["status"] == "pending"
+
+    auth_headers = user_authentication_headers(
+        client=client,
+        email=settings.FIRST_SUPERUSER,
+        password=settings.FIRST_SUPERUSER_PASSWORD,
+    )
+    invalid_scan = client.post(
+        f"{settings.API_V1_STR}/login/qr-code/confirm",
+        headers=auth_headers,
+        json={
+            "challenge_id": challenge["challenge_id"],
+            "scan_token": "x" * 32,
+        },
+    )
+    assert invalid_scan.status_code == 400
+    assert invalid_scan.json()["code"] == "AUTH_QR_INVALID"
+
+    confirmed = client.post(
+        f"{settings.API_V1_STR}/login/qr-code/confirm",
+        headers=auth_headers,
+        json={
+            "challenge_id": challenge["challenge_id"],
+            "scan_token": challenge["scan_token"],
+        },
+    )
+    assert confirmed.status_code == 200
+    assert confirmed.json()["user_name"]
+
+    status = client.post(f"{settings.API_V1_STR}/login/qr-code/status", json=poll_body)
+    assert status.status_code == 200
+    assert status.json()["status"] == "confirmed"
+
+    invalid_exchange = client.post(
+        f"{settings.API_V1_STR}/login/qr-code/exchange",
+        json={
+            "challenge_id": challenge["challenge_id"],
+            "poll_token": "x" * 32,
+        },
+    )
+    assert invalid_exchange.status_code == 400
+    assert invalid_exchange.json()["code"] == "AUTH_QR_INVALID"
+
+    exchanged = client.post(
+        f"{settings.API_V1_STR}/login/qr-code/exchange", json=poll_body
+    )
+    assert exchanged.status_code == 200
+    token_payload = jwt.decode(
+        exchanged.json()["access_token"],
+        settings.SECRET_KEY,
+        algorithms=[security.ALGORITHM],
+    )
+    default_tenant = db.exec(
+        select(Tenant).where(Tenant.code == DEFAULT_TENANT_CODE)
+    ).one()
+    assert token_payload["tenant_id"] == str(default_tenant.id)
+
+    reused = client.post(
+        f"{settings.API_V1_STR}/login/qr-code/exchange", json=poll_body
+    )
+    assert reused.status_code == 410
+    assert reused.json()["code"] == "AUTH_QR_EXPIRED"
+
+
+def test_qr_code_login_requires_redis(client: TestClient, monkeypatch) -> None:
+    monkeypatch.setattr(redis_cache, "is_enabled", lambda: False)
+
+    response = client.post(
+        f"{settings.API_V1_STR}/login/qr-code",
+        json={"tenant_code": DEFAULT_TENANT_CODE},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["code"] == "AUTH_QR_UNAVAILABLE"
+
+
 def test_sms_code_login_is_one_time(
     client: TestClient,
     db: Session,

@@ -1,4 +1,4 @@
-from sqlmodel import Session, create_engine, select
+from sqlmodel import SQLModel, Session, create_engine, select
 
 from app import crud
 from app.core.config import settings
@@ -22,6 +22,9 @@ from app.models import (
     TenantInitializationTemplate,
     TenantMembership,
     TenantPlan,
+    TenantPlanMenu,
+    TenantPlanProfile,
+    TenantProfile,
     User,
     UserCreate,
     UserRole,
@@ -44,6 +47,15 @@ def init_db(session: Session) -> None:
 
     # This works because the models are already imported and registered from app.models
     # SQLModel.metadata.create_all(engine)
+
+    SQLModel.metadata.create_all(
+        engine,
+        tables=[
+            TenantProfile.__table__,
+            TenantPlanProfile.__table__,
+            TenantPlanMenu.__table__,
+        ],
+    )
 
     default_plan = ensure_default_tenant_plan(session=session)
     default_template = ensure_default_tenant_template(session=session)
@@ -76,6 +88,7 @@ def init_db(session: Session) -> None:
 def ensure_default_tenant_plan(*, session: Session) -> TenantPlan:
     plan = session.exec(select(TenantPlan).where(TenantPlan.code == "standard")).first()
     if plan is not None:
+        ensure_tenant_plan_profile(session=session, plan=plan)
         return plan
     plan = TenantPlan(
         code="standard",
@@ -86,6 +99,7 @@ def ensure_default_tenant_plan(*, session: Session) -> TenantPlan:
     )
     session.add(plan)
     session.flush()
+    ensure_tenant_plan_profile(session=session, plan=plan)
     return plan
 
 
@@ -119,6 +133,7 @@ def ensure_default_tenant(
         select(Tenant).where(Tenant.code == DEFAULT_TENANT_CODE)
     ).first()
     if tenant:
+        ensure_tenant_profile(session=session, tenant=tenant)
         return tenant
     tenant = Tenant(
         id=DEFAULT_TENANT_ID,
@@ -130,7 +145,30 @@ def ensure_default_tenant(
     )
     session.add(tenant)
     session.flush()
+    ensure_tenant_profile(session=session, tenant=tenant)
     return tenant
+
+
+def ensure_tenant_profile(*, session: Session, tenant: Tenant) -> TenantProfile:
+    profile = session.get(TenantProfile, tenant.id)
+    if profile is not None:
+        return profile
+    profile = TenantProfile(tenant_id=tenant.id)
+    session.add(profile)
+    session.flush()
+    return profile
+
+
+def ensure_tenant_plan_profile(
+    *, session: Session, plan: TenantPlan
+) -> TenantPlanProfile:
+    profile = session.get(TenantPlanProfile, plan.id)
+    if profile is not None:
+        return profile
+    profile = TenantPlanProfile(plan_id=plan.id)
+    session.add(profile)
+    session.flush()
+    return profile
 
 
 def ensure_tenant_membership(

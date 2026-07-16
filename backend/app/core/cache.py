@@ -19,6 +19,7 @@ class CacheNamespace:
     LOGIN_RATE_LIMIT = "login-rate-limit"
     LOGIN_CAPTCHA = "login-captcha"
     SMS_VERIFICATION = "sms-verification"
+    QR_CODE_LOGIN = "qr-code-login"
 
 
 class RedisCache:
@@ -149,14 +150,87 @@ class RedisCache:
             context=f"delete cache keys {','.join(keys)}",
         )
 
-    def set_json(self, key: str, value: Any, *, ttl_seconds: int | None = None) -> None:
+    def set_json(self, key: str, value: Any, *, ttl_seconds: int | None = None) -> bool:
         payload = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
         ttl = ttl_seconds or settings.REDIS_CACHE_TTL_SECONDS
-        self._run_with_fallback(
-            lambda client: client.setex(key, max(ttl, 1), payload),
-            fallback=None,
-            context=f"set cache key {key}",
+        return bool(
+            self._run_with_fallback(
+                lambda client: client.setex(key, max(ttl, 1), payload),
+                fallback=False,
+                context=f"set cache key {key}",
+            )
         )
+
+    def compare_and_set_json(
+        self,
+        key: str,
+        *,
+        expected: dict[str, Any],
+        value: Any,
+    ) -> bool:
+        script = """
+        local raw = redis.call('GET', KEYS[1])
+        if not raw then return 0 end
+        local current = cjson.decode(raw)
+        local expected = cjson.decode(ARGV[1])
+        for field, expected_value in pairs(expected) do
+            if current[field] ~= expected_value then return 0 end
+        end
+        local ttl = redis.call('PTTL', KEYS[1])
+        if ttl <= 0 then return 0 end
+        redis.call('SET', KEYS[1], ARGV[2], 'PX', ttl)
+        return 1
+        """
+        expected_payload = json.dumps(
+            expected, ensure_ascii=False, separators=(",", ":")
+        )
+        value_payload = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+        return bool(
+            self._run_with_fallback(
+                lambda client: client.eval(
+                    script,
+                    1,
+                    key,
+                    expected_payload,
+                    value_payload,
+                ),
+                fallback=False,
+                context=f"compare and set cache key {key}",
+            )
+        )
+
+    def consume_json_if(
+        self,
+        key: str,
+        *,
+        expected: dict[str, Any],
+    ) -> Any | None:
+        script = """
+        local raw = redis.call('GET', KEYS[1])
+        if not raw then return nil end
+        local current = cjson.decode(raw)
+        local expected = cjson.decode(ARGV[1])
+        for field, expected_value in pairs(expected) do
+            if current[field] ~= expected_value then return nil end
+        end
+        redis.call('DEL', KEYS[1])
+        return raw
+        """
+        expected_payload = json.dumps(
+            expected, ensure_ascii=False, separators=(",", ":")
+        )
+        raw = self._run_with_fallback(
+            lambda client: client.eval(script, 1, key, expected_payload),
+            fallback=None,
+            context=f"conditionally consume cache key {key}",
+        )
+        if raw is None:
+            return None
+        try:
+            return json.loads(raw)
+        except JSONDecodeError:
+            logger.warning("Redis cache payload for key %s is not valid JSON", key)
+            return None
 
     def health_status(self) -> dict[str, Any]:
         if not self.is_enabled():

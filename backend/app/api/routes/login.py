@@ -15,7 +15,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import delete, select
 
 from app import crud
-from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
+from app.api.deps import (
+    CurrentTenant,
+    CurrentUser,
+    SessionDep,
+    get_current_active_superuser,
+)
 from app.api.routes.sms import create_sms_log, get_template_channel
 from app.audit import create_login_log, get_client_ip, get_user_agent
 from app.core import security
@@ -44,6 +49,13 @@ from app.models import (
     LoginCaptchaChallenge,
     Message,
     NewPassword,
+    QrCodeLoginChallenge,
+    QrCodeLoginConfirmRequest,
+    QrCodeLoginConfirmResult,
+    QrCodeLoginCreate,
+    QrCodeLoginExchangeRequest,
+    QrCodeLoginStatus,
+    QrCodeLoginStatusRequest,
     RegistrationStatus,
     Role,
     SmsCodeRequest,
@@ -82,6 +94,14 @@ LOGIN_MFA_SETUP_INVALID_MESSAGE = "MFA setup is invalid. Please restart MFA setu
 SMS_CODE_INVALID_MESSAGE = "SMS verification code is invalid or expired."
 SMS_VERIFICATION_UNAVAILABLE_MESSAGE = "SMS verification is unavailable."
 SMS_LOGIN_INVALID_MESSAGE = "Incorrect mobile or verification code"
+QR_LOGIN_UNAVAILABLE_MESSAGE = "QR code login is unavailable."
+QR_LOGIN_EXPIRED_MESSAGE = "QR code login challenge is invalid or expired."
+QR_LOGIN_INVALID_MESSAGE = "QR code login credential is invalid."
+QR_LOGIN_PENDING_MESSAGE = "QR code login has not been confirmed."
+QR_LOGIN_ALREADY_CONFIRMED_MESSAGE = "QR code login has already been confirmed."
+QR_LOGIN_TENANT_MISMATCH_MESSAGE = (
+    "QR code login tenant does not match the current tenant."
+)
 MOBILE_PATTERN = re.compile(r"^1[3-9]\d{9}$")
 TENANT_CODE_PATTERN = re.compile(r"^[a-z][a-z0-9-]{2,31}$")
 
@@ -122,9 +142,7 @@ def get_sms_verification_keys(
     )
 
 
-def hash_sms_code(
-    *, tenant_id: uuid.UUID, mobile: str, scene: str, code: str
-) -> str:
+def hash_sms_code(*, tenant_id: uuid.UUID, mobile: str, scene: str, code: str) -> str:
     payload = f"{tenant_id}:{scene}:{mobile}:{code}".encode()
     return hmac.new(settings.SECRET_KEY.encode(), payload, hashlib.sha256).hexdigest()
 
@@ -374,6 +392,188 @@ def create_login_token(
         ),
         tenant_id=tenant.id,
     )
+
+
+def get_qr_login_key(challenge_id: uuid.UUID) -> str:
+    return redis_cache.build_key(CacheNamespace.QR_CODE_LOGIN, challenge_id)
+
+
+def hash_qr_login_token(*, challenge_id: uuid.UUID, purpose: str, token: str) -> str:
+    payload = f"{challenge_id}:{purpose}:{token}".encode()
+    return hmac.new(settings.SECRET_KEY.encode(), payload, hashlib.sha256).hexdigest()
+
+
+def get_qr_login_payload(challenge_id: uuid.UUID) -> dict[str, Any]:
+    payload = redis_cache.get_json(get_qr_login_key(challenge_id))
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=410, detail=QR_LOGIN_EXPIRED_MESSAGE)
+    return payload
+
+
+def qr_login_token_matches(
+    *, challenge_id: uuid.UUID, purpose: str, token: str, expected_hash: object
+) -> bool:
+    if not isinstance(expected_hash, str):
+        return False
+    actual_hash = hash_qr_login_token(
+        challenge_id=challenge_id,
+        purpose=purpose,
+        token=token,
+    )
+    return hmac.compare_digest(actual_hash, expected_hash)
+
+
+@router.post("/login/qr-code", response_model=QrCodeLoginChallenge)
+def create_qr_code_login(
+    *, session: SessionDep, body: QrCodeLoginCreate
+) -> QrCodeLoginChallenge:
+    if not redis_cache.is_enabled():
+        raise HTTPException(status_code=503, detail=QR_LOGIN_UNAVAILABLE_MESSAGE)
+    tenant = get_login_tenant(session=session, tenant_code=body.tenant_code)
+    challenge_id = uuid.uuid4()
+    scan_token = secrets.token_urlsafe(32)
+    poll_token = secrets.token_urlsafe(32)
+    stored = redis_cache.set_json(
+        get_qr_login_key(challenge_id),
+        {
+            "status": "pending",
+            "tenant_id": str(tenant.id),
+            "scan_token_hash": hash_qr_login_token(
+                challenge_id=challenge_id,
+                purpose="scan",
+                token=scan_token,
+            ),
+            "poll_token_hash": hash_qr_login_token(
+                challenge_id=challenge_id,
+                purpose="poll",
+                token=poll_token,
+            ),
+        },
+        ttl_seconds=settings.QR_CODE_LOGIN_TTL_SECONDS,
+    )
+    if not stored:
+        raise HTTPException(status_code=503, detail=QR_LOGIN_UNAVAILABLE_MESSAGE)
+    return QrCodeLoginChallenge(
+        challenge_id=challenge_id,
+        scan_token=scan_token,
+        poll_token=poll_token,
+        expires_in=settings.QR_CODE_LOGIN_TTL_SECONDS,
+    )
+
+
+@router.post("/login/qr-code/status", response_model=QrCodeLoginStatus)
+def read_qr_code_login_status(body: QrCodeLoginStatusRequest) -> QrCodeLoginStatus:
+    payload = get_qr_login_payload(body.challenge_id)
+    if not qr_login_token_matches(
+        challenge_id=body.challenge_id,
+        purpose="poll",
+        token=body.poll_token,
+        expected_hash=payload.get("poll_token_hash"),
+    ):
+        raise HTTPException(status_code=400, detail=QR_LOGIN_INVALID_MESSAGE)
+    status_value = payload.get("status")
+    if status_value not in {"pending", "confirmed"}:
+        raise HTTPException(status_code=410, detail=QR_LOGIN_EXPIRED_MESSAGE)
+    return QrCodeLoginStatus(
+        status=status_value,
+        expires_in=settings.QR_CODE_LOGIN_TTL_SECONDS,
+    )
+
+
+@router.post("/login/qr-code/confirm", response_model=QrCodeLoginConfirmResult)
+def confirm_qr_code_login(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    tenant_context: CurrentTenant,
+    body: QrCodeLoginConfirmRequest,
+) -> QrCodeLoginConfirmResult:
+    payload = get_qr_login_payload(body.challenge_id)
+    if not qr_login_token_matches(
+        challenge_id=body.challenge_id,
+        purpose="scan",
+        token=body.scan_token,
+        expected_hash=payload.get("scan_token_hash"),
+    ):
+        raise HTTPException(status_code=400, detail=QR_LOGIN_INVALID_MESSAGE)
+    if payload.get("tenant_id") != str(tenant_context.tenant_id):
+        raise HTTPException(status_code=403, detail=QR_LOGIN_TENANT_MISMATCH_MESSAGE)
+    if payload.get("status") != "pending":
+        raise HTTPException(status_code=409, detail=QR_LOGIN_ALREADY_CONFIRMED_MESSAGE)
+
+    confirmed_payload = {
+        **payload,
+        "status": "confirmed",
+        "user_id": str(current_user.id),
+    }
+    updated = redis_cache.compare_and_set_json(
+        get_qr_login_key(body.challenge_id),
+        expected={
+            "status": "pending",
+            "scan_token_hash": payload["scan_token_hash"],
+        },
+        value=confirmed_payload,
+    )
+    if not updated:
+        raise HTTPException(status_code=409, detail=QR_LOGIN_ALREADY_CONFIRMED_MESSAGE)
+    tenant = session.get(Tenant, tenant_context.tenant_id)
+    return QrCodeLoginConfirmResult(
+        message="QR code login confirmed.",
+        tenant_name=tenant.name if tenant else tenant_context.tenant_code,
+        user_name=current_user.full_name or current_user.email,
+    )
+
+
+@router.post("/login/qr-code/exchange", response_model=Token)
+def exchange_qr_code_login(
+    *, request: Request, session: SessionDep, body: QrCodeLoginExchangeRequest
+) -> Token:
+    poll_token_hash = hash_qr_login_token(
+        challenge_id=body.challenge_id,
+        purpose="poll",
+        token=body.poll_token,
+    )
+    key = get_qr_login_key(body.challenge_id)
+    payload = redis_cache.consume_json_if(
+        key,
+        expected={
+            "status": "confirmed",
+            "poll_token_hash": poll_token_hash,
+        },
+    )
+    if not isinstance(payload, dict):
+        current = redis_cache.get_json(key)
+        if not isinstance(current, dict):
+            raise HTTPException(status_code=410, detail=QR_LOGIN_EXPIRED_MESSAGE)
+        if not hmac.compare_digest(
+            str(current.get("poll_token_hash", "")), poll_token_hash
+        ):
+            raise HTTPException(status_code=400, detail=QR_LOGIN_INVALID_MESSAGE)
+        raise HTTPException(status_code=409, detail=QR_LOGIN_PENDING_MESSAGE)
+
+    try:
+        user_id = uuid.UUID(str(payload["user_id"]))
+        tenant_id = uuid.UUID(str(payload["tenant_id"]))
+    except KeyError, ValueError:
+        raise HTTPException(status_code=410, detail=QR_LOGIN_EXPIRED_MESSAGE)
+    user = session.get(User, user_id)
+    if user is None or not user.is_active:
+        raise HTTPException(status_code=403, detail="Inactive user")
+    token = create_login_token(
+        session=session,
+        request=request,
+        user=user,
+        tenant_id=tenant_id,
+    )
+    create_login_log(
+        session=session,
+        request=request,
+        email=user.email,
+        status="success",
+        user=user,
+        tenant_id=token.tenant_id,
+    )
+    return token
 
 
 @router.post("/login/sms-code", response_model=SmsCodeSent)

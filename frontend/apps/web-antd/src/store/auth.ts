@@ -12,6 +12,7 @@ import { defineStore } from 'pinia';
 
 import {
   exchangeEnterpriseOidcTicketApi,
+  exchangeQrCodeLoginApi,
   getAccessCodesApi,
   getUserInfoApi,
   loginApi,
@@ -55,7 +56,9 @@ export const useAuthStore = defineStore('auth', () => {
       onSuccess
         ? await onSuccess?.()
         : await router.push(
-            userInfo.homePath || preferences.app.defaultHomePath,
+            typeof router.currentRoute.value.query.redirect === 'string'
+              ? decodeURIComponent(router.currentRoute.value.query.redirect)
+              : userInfo.homePath || preferences.app.defaultHomePath,
           );
     }
 
@@ -103,6 +106,19 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       loginLoading.value = true;
       const { accessToken } = await smsLoginApi(params);
+      return await completeLogin(accessToken, onSuccess);
+    } finally {
+      loginLoading.value = false;
+    }
+  }
+
+  async function authQrCodeLogin(
+    params: Parameters<typeof exchangeQrCodeLoginApi>[0],
+    onSuccess?: () => Promise<void> | void,
+  ) {
+    try {
+      loginLoading.value = true;
+      const { accessToken } = await exchangeQrCodeLoginApi(params);
       return await completeLogin(accessToken, onSuccess);
     } finally {
       loginLoading.value = false;
@@ -164,6 +180,7 @@ export const useAuthStore = defineStore('auth', () => {
     $reset,
     authEnterpriseOidcLogin,
     authLogin,
+    authQrCodeLogin,
     authSmsLogin,
     authTenantRegister,
     fetchUserInfo,
