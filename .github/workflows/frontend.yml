@@ -125,6 +125,8 @@ jobs:
       PROJECT_NAME: Fast Vben Admin
       SECRET_KEY: test-secret-key-for-ci
       SMTP_HOST: ''
+      VITE_APP_TITLE: Fast Vben Admin
+      VITE_GLOB_API_URL: /api/v1
 
     steps:
       - uses: actions/checkout@v4

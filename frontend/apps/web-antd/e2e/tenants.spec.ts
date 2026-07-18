@@ -111,8 +111,8 @@ test('admin can configure a tenant initialization template', async ({
     await loginAsAdmin(page);
     await page.goto('/system/tenant-templates');
 
-    await page.getByRole('button', { name: '新增初始化模板' }).click();
-    const createDrawer = page.getByRole('dialog', { name: '新增初始化模板' });
+    await page.getByRole('button', { name: '新增开通模板' }).click();
+    const createDrawer = page.getByRole('dialog', { name: '新增开通模板' });
     await createDrawer.getByRole('textbox', { name: '模板名称' }).fill(name);
     await createDrawer.getByRole('textbox', { name: '模板编码' }).fill(code);
     await createDrawer
@@ -137,7 +137,7 @@ test('admin can configure a tenant initialization template', async ({
 
     const row = page.getByRole('row').filter({ hasText: code });
     await row.getByRole('button', { name: '修改' }).click();
-    const editDrawer = page.getByRole('dialog', { name: '编辑初始化模板' });
+    const editDrawer = page.getByRole('dialog', { name: '编辑开通模板' });
     await editDrawer
       .getByRole('textbox', { name: '模板名称' })
       .fill(updatedName);
