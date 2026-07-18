@@ -9,12 +9,15 @@ services:
   frontend:
     build:
       target: development
+    environment:
+      NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+      VITE_GLOB_API_URL: http://localhost:8000/api/v1
     command: pnpm -F @vben/web-antd run dev --host 0.0.0.0
     volumes:
-      - ./frontend:/app
+      - ./frontend/apps/web-antd/src:/app/apps/web-antd/src
       - frontend-node-modules:/app/node_modules
     ports:
-      - "5173:5173"
+      - "5174:5173"
 
 volumes:
   frontend-node-modules:

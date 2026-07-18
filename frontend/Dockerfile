@@ -7,7 +7,7 @@ RUN corepack enable
 
 WORKDIR /app
 
-COPY ./frontend/package.json ./frontend/pnpm-lock.yaml ./frontend/pnpm-workspace.yaml ./
+COPY ./frontend/package.json ./frontend/pnpm-lock.yaml ./frontend/pnpm-workspace.yaml ./frontend/.npmrc ./
 COPY ./frontend/apps ./apps
 COPY ./frontend/internal ./internal
 COPY ./frontend/packages ./packages
