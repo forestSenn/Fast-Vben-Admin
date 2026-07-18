@@ -7,7 +7,7 @@ Date: 2026-07-14
 ## Context
 
 The v2.0 roadmap requires tenant isolation, data permissions, quotas, and an
-optional workflow layer. The current application has global users and roles,
+optional business extensions. The current application has global users and roles,
 and business records are generally protected by ownership or RBAC only. Adding
 `tenant_id` to every table without first defining identity and request context
 would create inconsistent isolation rules and make data migration unsafe.

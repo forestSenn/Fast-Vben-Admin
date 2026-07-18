@@ -114,8 +114,6 @@ class Settings(BaseSettings):
     ENTERPRISE_OIDC_HTTP_TIMEOUT_SECONDS: float = 5.0
     METRICS_ENABLED: bool = True
     METRICS_AUTH_TOKEN: str | None = None
-    BPM_ENABLED: bool = False
-
     @model_validator(mode="after")
     def _set_default_emails_from(self) -> Self:
         if not self.EMAILS_FROM_NAME:

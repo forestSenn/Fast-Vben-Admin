@@ -22,7 +22,6 @@ from app.api.routes import (
     tenants,
     users,
     utils,
-    workflows,
 )
 from app.api.routes import settings as system_settings
 from app.core.config import settings
@@ -49,7 +48,6 @@ api_router.include_router(site_messages.router)
 api_router.include_router(oauth2.router)
 api_router.include_router(social.router)
 api_router.include_router(tenants.router)
-api_router.include_router(workflows.router)
 
 
 if settings.ENVIRONMENT == "local":

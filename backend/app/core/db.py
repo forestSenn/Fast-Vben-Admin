@@ -1053,20 +1053,6 @@ def seed_menus(*, session: Session) -> list[Menu]:
         permission_code="business:item:list",
         sort=20,
     )
-    workflow = ensure_menu(
-        session=session,
-        title="menu.workflows",
-        type="menu",
-        route_path="/workflows",
-        route_name="Workflows",
-        component="#/views/workflows/index.vue",
-        icon="lucide:workflow",
-        permission_code="workflow:task:list",
-        sort=30,
-        is_active=settings.BPM_ENABLED,
-    )
-    workflow_menus = [workflow]
-
     button_permissions = [
         (tenants.id, "新增租户", "platform:tenant:create", 6),
         (tenants.id, "编辑租户", "platform:tenant:update", 7),
@@ -1165,13 +1151,6 @@ def seed_menus(*, session: Session) -> list[Menu]:
         (items.id, "编辑示例", "business:item:update", 52),
         (items.id, "删除示例", "business:item:delete", 53),
     ]
-    button_permissions.extend(
-        [
-            (workflow.id, "管理流程定义", "workflow:definition:manage", 31),
-            (workflow.id, "发起流程", "workflow:instance:start", 32),
-            (workflow.id, "管理全部任务", "workflow:task:manage", 33),
-        ]
-    )
     buttons = [
         ensure_menu(
             session=session,
@@ -1184,10 +1163,6 @@ def seed_menus(*, session: Session) -> list[Menu]:
         )
         for parent_id, title, permission_code, sort in button_permissions
     ]
-    for button in buttons:
-        if button.permission_code and button.permission_code.startswith("workflow:"):
-            button.is_active = settings.BPM_ENABLED
-            session.add(button)
     return [
         dashboard,
         system,
@@ -1231,7 +1206,6 @@ def seed_menus(*, session: Session) -> list[Menu]:
         mail_templates,
         mail_logs,
         items,
-        *workflow_menus,
         *buttons,
     ]
 
@@ -1241,6 +1215,7 @@ def remove_obsolete_menus(*, session: Session) -> None:
         "/system/codegen",
         "/system/online-users",
         "/system/operations",
+        "/workflows",
     }
     obsolete_permission_prefixes = (
         "system:api-log:",
@@ -1250,6 +1225,7 @@ def remove_obsolete_menus(*, session: Session) -> None:
         "system:scheduled-task-log:",
         "system:session:",
         "system:translation:",
+        "workflow:",
     )
     obsolete_menus = [
         menu

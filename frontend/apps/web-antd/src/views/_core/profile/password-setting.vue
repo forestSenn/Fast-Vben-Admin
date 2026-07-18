@@ -11,7 +11,7 @@ import { updateCurrentPasswordApi } from '#/api';
 
 const saving = ref(false);
 
-const [Form, formApi] = useVbenForm({
+const [Form] = useVbenForm({
   commonConfig: {
     labelWidth: 120,
   },
@@ -81,7 +81,6 @@ const [Form, formApi] = useVbenForm({
 
 async function handleSubmit(values: Recordable<any>) {
   saving.value = true;
-  formApi.setLoading(true);
   try {
     await updateCurrentPasswordApi({
       current_password: String(values.oldPassword || ''),
@@ -89,7 +88,6 @@ async function handleSubmit(values: Recordable<any>) {
     });
     message.success('密码修改成功');
   } finally {
-    formApi.setLoading(false);
     saving.value = false;
   }
 }

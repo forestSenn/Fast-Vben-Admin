@@ -16,4 +16,3 @@ export * from './system-config';
 export * from './tenants';
 export * from './user';
 export * from './users';
-export * from './workflows';

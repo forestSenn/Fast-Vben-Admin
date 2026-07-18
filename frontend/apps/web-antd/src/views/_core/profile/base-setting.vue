@@ -61,7 +61,6 @@ function applyProfile(data?: AuthApi.FastApiUser) {
 
 async function handleSubmit(values: Recordable<any>) {
   saving.value = true;
-  formApi.setLoading(true);
   try {
     await updateCurrentUserApi({
       email: String(values.email || ''),
@@ -71,7 +70,6 @@ async function handleSubmit(values: Recordable<any>) {
     message.success('个人资料已更新');
     emit('success');
   } finally {
-    formApi.setLoading(false);
     saving.value = false;
   }
 }
