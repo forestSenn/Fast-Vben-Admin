@@ -1,7 +1,7 @@
-from io import BytesIO
+import uuid
 from base64 import urlsafe_b64encode
 from hashlib import sha256
-import uuid
+from io import BytesIO
 
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
@@ -18,9 +18,9 @@ from app.models import (
     OAuth2AuthorizationCode,
     OAuth2Client,
     Role,
+    SmsChannel,
     SocialClient,
     SocialUser,
-    SmsChannel,
     Tenant,
     TenantMembership,
     UserCreate,
