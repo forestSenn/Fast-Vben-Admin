@@ -195,10 +195,6 @@ def test_normal_user_cannot_manage_tenants(
             json={"menu_ids": []},
         ),
         client.post(
-            f"{settings.API_V1_STR}/tenants/plans/sync-menus",
-            headers=normal_user_token_headers,
-        ),
-        client.post(
             f"{settings.API_V1_STR}/tenants/{DEFAULT_TENANT_ID}/lifecycle",
             headers=normal_user_token_headers,
             json={"action": "freeze", "frozen_reason": "Denied"},
@@ -215,39 +211,72 @@ def test_normal_user_cannot_manage_tenants(
     assert all(response.status_code == 403 for response in denied_responses)
 
 
-def test_default_tenant_cannot_be_disabled(
+def test_default_tenant_cannot_be_modified(
     client: TestClient,
     superuser_token_headers: dict[str, str],
 ) -> None:
-    response = client.patch(
-        f"{settings.API_V1_STR}/tenants/{DEFAULT_TENANT_ID}",
-        headers=superuser_token_headers,
-        json={"is_active": False},
+    responses = [
+        client.patch(
+            f"{settings.API_V1_STR}/tenants/{DEFAULT_TENANT_ID}",
+            headers=superuser_token_headers,
+            json={"name": "Changed default tenant"},
+        ),
+        client.post(
+            f"{settings.API_V1_STR}/tenants/{DEFAULT_TENANT_ID}/lifecycle",
+            headers=superuser_token_headers,
+            json={"action": "freeze", "frozen_reason": "Protected"},
+        ),
+        client.post(
+            f"{settings.API_V1_STR}/tenants/{DEFAULT_TENANT_ID}/sync-menus",
+            headers=superuser_token_headers,
+        ),
+        client.delete(
+            f"{settings.API_V1_STR}/tenants/{DEFAULT_TENANT_ID}",
+            headers=superuser_token_headers,
+        ),
+    ]
+
+    assert all(response.status_code == 400 for response in responses)
+    assert all(
+        response.json()["code"] == "TENANT_DEFAULT_PROTECTED" for response in responses
     )
-    assert response.status_code == 400
-    assert response.json()["code"] == "TENANT_DEFAULT_PROTECTED"
 
 
-def test_default_plan_menus_retain_required_baseline(
+def test_default_plan_cannot_be_modified(
     client: TestClient,
     db: Session,
     superuser_token_headers: dict[str, str],
 ) -> None:
     default_plan = db.exec(select(TenantPlan).where(TenantPlan.is_default)).one()
-    dashboard_menu = db.exec(
-        select(Menu).where(Menu.permission_code == "dashboard:view")
-    ).one()
+    responses = [
+        client.patch(
+            f"{settings.API_V1_STR}/tenants/plans/{default_plan.id}",
+            headers=superuser_token_headers,
+            json={"name": "Changed default plan"},
+        ),
+        client.put(
+            f"{settings.API_V1_STR}/tenants/plans/{default_plan.id}/menus",
+            headers=superuser_token_headers,
+            json={"menu_ids": []},
+        ),
+        client.delete(
+            f"{settings.API_V1_STR}/tenants/plans/{default_plan.id}",
+            headers=superuser_token_headers,
+        ),
+    ]
 
-    response = client.put(
-        f"{settings.API_V1_STR}/tenants/plans/{default_plan.id}/menus",
+    assert all(response.status_code == 400 for response in responses)
+    assert all(
+        response.json()["code"] == "TENANT_DEFAULT_PLAN_PROTECTED"
+        for response in responses
+    )
+
+    sync_response = client.post(
+        f"{settings.API_V1_STR}/tenants/plans/{default_plan.id}/sync-menus",
         headers=superuser_token_headers,
-        json={"menu_ids": [str(dashboard_menu.id)]},
     )
-
-    assert response.status_code == 400
-    assert response.json()["message"] == (
-        "Default tenant plan must retain required menus"
-    )
+    assert sync_response.status_code == 200
+    assert sync_response.json()["success_count"] >= 1
 
 
 def test_tenant_initialization_template_controls_seed_data(
@@ -480,6 +509,7 @@ def test_tenant_plan_quotas_are_enforced(
             json={"max_file_assets": 2},
         )
         assert update_plan_response.status_code == 200
+
         storage_response = client.post(
             f"{settings.API_V1_STR}/files/upload",
             headers=tenant_headers,

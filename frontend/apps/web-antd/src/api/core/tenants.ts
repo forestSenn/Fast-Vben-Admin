@@ -169,10 +169,6 @@ export function syncTenantPlanMenusApi(planId: string) {
   );
 }
 
-export function syncAllTenantPlanMenusApi() {
-  return requestClient.post<TenantMenuSyncRecord>('/tenants/plans/sync-menus');
-}
-
 export function listTenantTemplatesApi(params: TenantPlanListParams = {}) {
   return requestClient.get<TenantTemplateListResult>('/tenants/templates', {
     params,

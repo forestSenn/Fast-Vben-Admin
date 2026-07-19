@@ -651,6 +651,47 @@ def test_update_user(
     assert user_db.full_name == "Updated_full_name"
 
 
+def test_built_in_administrator_cannot_be_modified(
+    client: TestClient,
+    db: Session,
+    superuser_token_headers: dict[str, str],
+) -> None:
+    protected_user = crud.get_user_by_email(
+        session=db,
+        email=settings.FIRST_SUPERUSER,
+    )
+    assert protected_user is not None
+
+    responses = [
+        client.patch(
+            f"{settings.API_V1_STR}/users/{protected_user.id}",
+            headers=superuser_token_headers,
+            json={"full_name": "Changed administrator"},
+        ),
+        client.put(
+            f"{settings.API_V1_STR}/users/{protected_user.id}/roles",
+            headers=superuser_token_headers,
+            json={"role_ids": []},
+        ),
+        client.put(
+            f"{settings.API_V1_STR}/users/{protected_user.id}/posts",
+            headers=superuser_token_headers,
+            json={"post_ids": []},
+        ),
+        client.post(
+            f"{settings.API_V1_STR}/users/{protected_user.id}/mfa/reset",
+            headers=superuser_token_headers,
+        ),
+        client.delete(
+            f"{settings.API_V1_STR}/users/{protected_user.id}",
+            headers=superuser_token_headers,
+        ),
+    ]
+
+    assert all(response.status_code == 403 for response in responses)
+    assert all(response.json()["code"] == "USER_PROTECTED" for response in responses)
+
+
 def test_update_user_not_exists(
     client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:
@@ -767,7 +808,7 @@ def test_delete_user_current_super_user_error(
         headers=superuser_token_headers,
     )
     assert r.status_code == 403
-    assert r.json()["message"] == "Super users are not allowed to delete themselves"
+    assert r.json()["message"] == "Built-in administrator cannot be modified"
 
 
 def test_delete_user_without_privileges(

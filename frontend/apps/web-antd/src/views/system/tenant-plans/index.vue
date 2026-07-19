@@ -6,7 +6,7 @@ import type {
 import type { TenantPlanRecord } from '#/api';
 
 import { Page, useVbenDrawer } from '@vben/common-ui';
-import { IconifyIcon, Plus } from '@vben/icons';
+import { Plus } from '@vben/icons';
 
 import { Button, message } from 'ant-design-vue';
 
@@ -14,7 +14,6 @@ import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import {
   deleteTenantPlanApi,
   listTenantPlansApi,
-  syncAllTenantPlanMenusApi,
   syncTenantPlanMenusApi,
 } from '#/api';
 import { $t } from '#/locales';
@@ -58,23 +57,6 @@ async function onSyncMenus(row: TenantPlanRecord) {
       $t('system.tenantPlan.syncMenu'),
     );
     const result = await syncTenantPlanMenusApi(row.id);
-    showSyncResult(
-      result.success_count,
-      result.failed_count,
-      result.skipped_count,
-    );
-  } catch {
-    // Cancellation and request errors are handled by the shared UI layer.
-  }
-}
-
-async function onSyncAllMenus() {
-  try {
-    await confirmAction(
-      $t('system.tenantPlan.syncAllConfirm'),
-      $t('system.tenantPlan.syncAllMenu'),
-    );
-    const result = await syncAllTenantPlanMenusApi();
     showSyncResult(
       result.success_count,
       result.failed_count,
@@ -135,23 +117,14 @@ const [Grid, gridApi] = useVbenVxeGrid({
     <PermissionDrawer @success="gridApi.query()" />
     <Grid :table-title="$t('system.tenantPlan.list')">
       <template #toolbar-tools>
-        <div class="flex items-center gap-2">
-          <Button
-            v-access:code="'platform:plan:sync-menu'"
-            @click="onSyncAllMenus"
-          >
-            <IconifyIcon class="size-4" icon="lucide:refresh-cw" />
-            {{ $t('system.tenantPlan.syncAllMenu') }}
-          </Button>
-          <Button
-            v-access:code="'platform:plan:create'"
-            type="primary"
-            @click="formDrawerApi.setData(undefined).open()"
-          >
-            <Plus class="size-5" />
-            {{ $t('system.tenantPlan.create') }}
-          </Button>
-        </div>
+        <Button
+          v-access:code="'platform:plan:create'"
+          type="primary"
+          @click="formDrawerApi.setData(undefined).open()"
+        >
+          <Plus class="size-5" />
+          {{ $t('system.tenantPlan.create') }}
+        </Button>
       </template>
     </Grid>
   </Page>

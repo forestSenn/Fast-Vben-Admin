@@ -378,8 +378,8 @@ pnpm build
 
 1. 套餐表单维护配额、价格、类型、发布状态、排序和展示信息。
 2. “菜单授权”维护套餐功能基线；平台管理菜单不可授权，保存时自动补齐所选菜单的祖先节点。
-3. 默认套餐必须保留 `dashboard:view` 和 `personal:message:list` 两项系统保底权限。
-4. “同步租户菜单”只同步当前套餐；“同步全部租户”遍历全部有效套餐。
+3. 当前默认套餐不可直接编辑、重新授权、停用或删除；其他套餐仍可按原流程设为默认。
+4. “同步租户菜单”只同步当前套餐关联的租户。
 5. 同步结果返回成功、失败、跳过数量。`super_admin` 跟随套餐基线，`admin`、`user` 保留交集，自定义角色不覆盖。
 
 ### 17.3 初始化模板
@@ -413,7 +413,6 @@ pnpm build
 | `GET` | `/api/v1/tenants/plans/{plan_id}/menus` | 查询套餐菜单基线 | `platform:plan:grant-menu` |
 | `PUT` | `/api/v1/tenants/plans/{plan_id}/menus` | 保存套餐菜单基线 | `platform:plan:grant-menu` |
 | `POST` | `/api/v1/tenants/plans/{plan_id}/sync-menus` | 同步当前套餐租户 | `platform:plan:sync-menu` |
-| `POST` | `/api/v1/tenants/plans/sync-menus` | 同步全部有效套餐租户 | `platform:plan:sync-menu` |
 
 ### 18.3 初始化模板接口
 

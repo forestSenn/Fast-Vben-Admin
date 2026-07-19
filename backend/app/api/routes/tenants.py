@@ -63,6 +63,23 @@ from app.models import (
 router = APIRouter(prefix="/tenants", tags=["tenants"])
 logger = logging.getLogger(__name__)
 
+
+def ensure_tenant_is_mutable(tenant_id: uuid.UUID) -> None:
+    if tenant_id == DEFAULT_TENANT_ID:
+        raise HTTPException(
+            status_code=400,
+            detail="Default tenant cannot be modified",
+        )
+
+
+def ensure_tenant_plan_is_mutable(plan: TenantPlan) -> None:
+    if plan.is_default:
+        raise HTTPException(
+            status_code=400,
+            detail="Default tenant plan cannot be modified",
+        )
+
+
 TENANT_FIELDS = {"code", "name", "description", "is_active"}
 TENANT_PROFILE_FIELDS = {
     "contact_name",
@@ -99,10 +116,6 @@ PLAN_PROFILE_FIELD_MAP = {
     "published": "published",
     "order_num": "order_num",
     "remark": "remark",
-}
-REQUIRED_DEFAULT_PLAN_PERMISSION_CODES = {
-    "dashboard:view",
-    "personal:message:list",
 }
 
 
@@ -682,24 +695,6 @@ def read_simple_tenant_plans(session: SessionDep) -> Any:
     return [build_tenant_plan_public(session=session, plan=plan) for plan in plans]
 
 
-@router.post(
-    "/plans/sync-menus",
-    dependencies=[Depends(get_current_active_superuser)],
-    response_model=TenantMenuSyncResult,
-)
-def sync_all_tenant_plan_menus(session: SessionDep) -> TenantMenuSyncResult:
-    result = TenantMenuSyncResult()
-    plan_ids = session.exec(select(TenantPlan.id).where(TenantPlan.is_active)).all()
-    for plan_id in plan_ids:
-        plan_result = sync_plan_tenants(session=session, plan_id=plan_id)
-        result.success_count += plan_result.success_count
-        result.failed_count += plan_result.failed_count
-        result.skipped_count += plan_result.skipped_count
-    session.commit()
-    redis_cache.bump_namespace(CacheNamespace.RBAC)
-    return result
-
-
 @router.get(
     "/plans/{plan_id}/menus",
     dependencies=[Depends(get_current_active_superuser)],
@@ -728,22 +723,8 @@ def update_tenant_plan_menus(
     body: TenantPlanMenuUpdate,
 ) -> list[uuid.UUID]:
     plan = get_plan_or_404(session=session, plan_id=plan_id)
+    ensure_tenant_plan_is_mutable(plan)
     resolved_ids = resolve_plan_menu_ids(session=session, menu_ids=body.menu_ids)
-    if plan.is_default:
-        required_menu_ids = set(
-            session.exec(
-                select(Menu.id).where(
-                    col(Menu.permission_code).in_(
-                        REQUIRED_DEFAULT_PLAN_PERMISSION_CODES
-                    )
-                )
-            ).all()
-        )
-        if not required_menu_ids.issubset(resolved_ids):
-            raise HTTPException(
-                status_code=400,
-                detail="Default tenant plan must retain required menus",
-            )
     session.exec(delete(TenantPlanMenu).where(TenantPlanMenu.plan_id == plan.id))
     for menu_id in resolved_ids:
         session.add(TenantPlanMenu(plan_id=plan.id, menu_id=menu_id))
@@ -827,6 +808,7 @@ def update_tenant_plan(
     plan_in: TenantPlanUpdate,
 ) -> TenantPlanPublic:
     plan = get_plan_or_404(session=session, plan_id=plan_id)
+    ensure_tenant_plan_is_mutable(plan)
     input_data = plan_in.model_dump(exclude_unset=True)
     update_data = {
         key: value for key, value in input_data.items() if key in PLAN_FIELDS
@@ -840,14 +822,6 @@ def update_tenant_plan(
             raise HTTPException(
                 status_code=409, detail="Tenant plan code already exists"
             )
-    if plan.is_default and update_data.get("is_default") is False:
-        raise HTTPException(
-            status_code=400, detail="Default tenant plan cannot be unset"
-        )
-    if plan.is_default and update_data.get("is_active") is False:
-        raise HTTPException(
-            status_code=400, detail="Default tenant plan cannot be disabled"
-        )
     if update_data.get("is_active") is False:
         bound_tenant = session.exec(
             select(Tenant).where(Tenant.plan_id == plan.id)
@@ -874,10 +848,7 @@ def update_tenant_plan(
 )
 def delete_tenant_plan(*, session: SessionDep, plan_id: uuid.UUID) -> Response:
     plan = get_plan_or_404(session=session, plan_id=plan_id)
-    if plan.is_default:
-        raise HTTPException(
-            status_code=400, detail="Default tenant plan cannot be deleted"
-        )
+    ensure_tenant_plan_is_mutable(plan)
     if session.exec(select(Tenant).where(Tenant.plan_id == plan.id)).first():
         raise HTTPException(status_code=400, detail="Tenant plan is in use")
     session.delete(plan)
@@ -1150,10 +1121,7 @@ def operate_tenant_lifecycle(
     tenant_id: uuid.UUID,
     body: TenantLifecycleActionRequest,
 ) -> TenantPublic:
-    if tenant_id == DEFAULT_TENANT_ID:
-        raise HTTPException(
-            status_code=400, detail="Default tenant lifecycle cannot be changed"
-        )
+    ensure_tenant_is_mutable(tenant_id)
     tenant = get_tenant_or_404(session=session, tenant_id=tenant_id)
     profile = ensure_tenant_profile(session=session, tenant=tenant)
     now = get_datetime_utc()
@@ -1254,6 +1222,7 @@ def operate_tenant_lifecycle(
 def sync_tenant_menus(
     *, session: SessionDep, tenant_id: uuid.UUID
 ) -> TenantMenuSyncResult:
+    ensure_tenant_is_mutable(tenant_id)
     tenant = get_tenant_or_404(session=session, tenant_id=tenant_id)
     synced = sync_tenant_plan_role_menus(session=session, tenant=tenant)
     session.commit()
@@ -1282,6 +1251,7 @@ def read_tenant(*, session: SessionDep, tenant_id: uuid.UUID) -> Any:
 def update_tenant(
     *, session: SessionDep, tenant_id: uuid.UUID, tenant_in: TenantUpdate
 ) -> Any:
+    ensure_tenant_is_mutable(tenant_id)
     tenant = get_tenant_or_404(session=session, tenant_id=tenant_id)
     input_data = tenant_in.model_dump(exclude_unset=True)
     update_data = {
@@ -1293,26 +1263,6 @@ def update_tenant(
             plan_id=input_data["plan_id"],
         ).id
     profile = ensure_tenant_profile(session=session, tenant=tenant)
-    if tenant.id == DEFAULT_TENANT_ID:
-        if update_data.get("is_active") is False:
-            raise HTTPException(
-                status_code=400, detail="Default tenant cannot be disabled"
-            )
-        if "code" in update_data and update_data["code"] != tenant.code:
-            raise HTTPException(
-                status_code=400, detail="Default tenant code cannot be changed"
-            )
-        protected_profile_fields = {
-            "lifecycle_status",
-            "trial_ends_at",
-            "service_expires_at",
-            "frozen_reason",
-        }
-        if protected_profile_fields & input_data.keys():
-            raise HTTPException(
-                status_code=400,
-                detail="Default tenant lifecycle cannot be changed",
-            )
     new_code = update_data.get("code")
     if new_code and new_code != tenant.code:
         existing = session.exec(select(Tenant).where(Tenant.code == new_code)).first()
@@ -1364,8 +1314,7 @@ def update_tenant(
     status_code=204,
 )
 def archive_tenant(*, session: SessionDep, tenant_id: uuid.UUID) -> Response:
-    if tenant_id == DEFAULT_TENANT_ID:
-        raise HTTPException(status_code=400, detail="Default tenant cannot be disabled")
+    ensure_tenant_is_mutable(tenant_id)
     tenant = get_tenant_or_404(session=session, tenant_id=tenant_id)
     profile = ensure_tenant_profile(session=session, tenant=tenant)
     profile.lifecycle_status = TenantLifecycleStatus.ARCHIVED

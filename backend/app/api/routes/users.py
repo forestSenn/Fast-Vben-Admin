@@ -65,6 +65,14 @@ from app.utils import generate_new_account_email, send_email
 router = APIRouter(prefix="/users", tags=["users"])
 
 
+def ensure_user_is_mutable(user: User) -> None:
+    if user.email.casefold() == str(settings.FIRST_SUPERUSER).casefold():
+        raise HTTPException(
+            status_code=403,
+            detail="Built-in administrator cannot be modified",
+        )
+
+
 def parse_csv_bool(value: str | None, default: bool = False) -> bool:
     if value is None or value.strip() == "":
         return default
@@ -560,6 +568,7 @@ def reset_user_mfa(
         tenant_id=tenant_context.tenant_id,
         user_id=user_id,
     )
+    ensure_user_is_mutable(user)
 
     user.mfa_enabled = False
     user.mfa_secret_encrypted = None
@@ -890,6 +899,7 @@ def update_user_roles(
         tenant_id=tenant_context.tenant_id,
         user_id=user_id,
     )
+    ensure_user_is_mutable(user)
     if body.role_ids:
         role_count = session.exec(
             select(func.count())
@@ -978,6 +988,7 @@ def update_user_posts(
         tenant_id=tenant_context.tenant_id,
         user_id=user_id,
     )
+    ensure_user_is_mutable(user)
     if body.post_ids:
         post_count = session.exec(
             select(func.count())
@@ -1039,6 +1050,7 @@ def update_user(
         tenant_id=tenant_context.tenant_id,
         user_id=user_id,
     )
+    ensure_user_is_mutable(db_user)
     if db_user.is_superuser and not current_user.is_superuser:
         raise HTTPException(
             status_code=403, detail="The user doesn't have enough privileges"
@@ -1120,6 +1132,7 @@ def delete_user(
         tenant_id=tenant_context.tenant_id,
         user_id=user_id,
     )
+    ensure_user_is_mutable(user)
     if user == current_user:
         raise HTTPException(
             status_code=403, detail="Super users are not allowed to delete themselves"

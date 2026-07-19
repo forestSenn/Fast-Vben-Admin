@@ -6,6 +6,12 @@ import { z } from '#/adapter/form';
 import { listDepartmentsApi, listPostsApi, listRolesApi } from '#/api';
 import { $t } from '#/locales';
 
+const PROTECTED_ADMIN_EMAIL = 'admin@example.com';
+
+function isProtectedAdmin(row: UserRecord) {
+  return row.email.toLowerCase() === PROTECTED_ADMIN_EMAIL;
+}
+
 export function useFormSchema(isEdit = false): VbenFormSchema[] {
   return [
     {
@@ -158,6 +164,9 @@ export function useColumns(
       cellRender: {
         attrs: { auth: 'system:user:update', beforeChange: onStatusChange },
         name: onStatusChange ? 'CellSwitch' : 'CellTag',
+        props: {
+          disabled: isProtectedAdmin,
+        },
       },
       field: 'is_active',
       title: $t('system.user.status'),
@@ -186,14 +195,17 @@ export function useColumns(
           {
             auth: 'system:user:update',
             code: 'edit',
+            disabled: isProtectedAdmin,
           },
           {
             auth: 'system:user:delete',
             code: 'delete',
+            disabled: isProtectedAdmin,
           },
           {
             auth: 'system:user:update',
             code: 'reset-mfa',
+            disabled: isProtectedAdmin,
             text: '重置 MFA',
           },
         ],
@@ -201,7 +213,7 @@ export function useColumns(
       field: 'operation',
       fixed: 'right',
       title: $t('system.user.operation'),
-      width: 130,
+      width: 180,
     },
   ];
 }

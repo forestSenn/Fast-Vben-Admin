@@ -226,6 +226,7 @@ export function useColumns(
           {
             auth: 'platform:plan:grant-menu',
             code: 'grant-menu',
+            disabled: (row: TenantPlanRecord) => row.is_default,
             text: $t('system.tenantPlan.grantMenu'),
           },
           {
@@ -233,7 +234,11 @@ export function useColumns(
             code: 'sync-menu',
             text: $t('system.tenantPlan.syncMenu'),
           },
-          { auth: 'platform:plan:update', code: 'edit' },
+          {
+            auth: 'platform:plan:update',
+            code: 'edit',
+            disabled: (row: TenantPlanRecord) => row.is_default,
+          },
           {
             auth: 'platform:plan:delete',
             code: 'delete',

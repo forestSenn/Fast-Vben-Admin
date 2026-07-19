@@ -10512,22 +10512,6 @@ export type TenantsReadSimpleTenantPlansResponses = {
 
 export type TenantsReadSimpleTenantPlansResponse = TenantsReadSimpleTenantPlansResponses[keyof TenantsReadSimpleTenantPlansResponses];
 
-export type TenantsSyncAllTenantPlanMenusData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/v1/tenants/plans/sync-menus';
-};
-
-export type TenantsSyncAllTenantPlanMenusResponses = {
-    /**
-     * Successful Response
-     */
-    200: TenantMenuSyncResult;
-};
-
-export type TenantsSyncAllTenantPlanMenusResponse = TenantsSyncAllTenantPlanMenusResponses[keyof TenantsSyncAllTenantPlanMenusResponses];
-
 export type TenantsReadTenantPlanMenusData = {
     body?: never;
     path: {

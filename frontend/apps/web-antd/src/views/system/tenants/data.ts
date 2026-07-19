@@ -398,17 +398,23 @@ export function useColumns(
             code: 'overview',
             text: $t('system.tenant.overview'),
           },
-          { auth: 'platform:tenant:update', code: 'edit' },
+          {
+            auth: 'platform:tenant:update',
+            code: 'edit',
+            disabled: (row: TenantRecord) => row.id === DEFAULT_TENANT_ID,
+          },
           {
             auth: 'platform:tenant:lifecycle',
             code: 'convert',
-            disabled: (row: TenantRecord) => row.lifecycle_status !== 'trial',
+            disabled: (row: TenantRecord) =>
+              row.id === DEFAULT_TENANT_ID || row.lifecycle_status !== 'trial',
             text: $t('system.tenant.convertFormal'),
           },
           {
             auth: 'platform:tenant:lifecycle',
             code: 'renew',
             disabled: (row: TenantRecord) =>
+              row.id === DEFAULT_TENANT_ID ||
               row.lifecycle_status === 'archived',
             text: $t('system.tenant.renew'),
           },
@@ -416,18 +422,21 @@ export function useColumns(
             auth: 'platform:tenant:lifecycle',
             code: 'freeze',
             disabled: (row: TenantRecord) =>
+              row.id === DEFAULT_TENANT_ID ||
               ['archived', 'frozen'].includes(row.lifecycle_status ?? 'formal'),
             text: $t('system.tenant.freeze'),
           },
           {
             auth: 'platform:tenant:lifecycle',
             code: 'unfreeze',
-            disabled: (row: TenantRecord) => row.lifecycle_status !== 'frozen',
+            disabled: (row: TenantRecord) =>
+              row.id === DEFAULT_TENANT_ID || row.lifecycle_status !== 'frozen',
             text: $t('system.tenant.unfreeze'),
           },
           {
             auth: 'platform:tenant:sync-menu',
             code: 'sync-menu',
+            disabled: (row: TenantRecord) => row.id === DEFAULT_TENANT_ID,
             text: $t('system.tenant.syncMenu'),
           },
           {

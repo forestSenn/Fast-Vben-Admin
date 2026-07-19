@@ -109,6 +109,10 @@ setupVbenVxeTable({
         const { hasAccessByCodes } = useAccess();
         const loadingKey = `__loading_${column.field}`;
         const auth = attrs?.auth;
+        const disabled =
+          typeof props?.disabled === 'function'
+            ? props.disabled(row)
+            : props?.disabled;
         const hasPermission = auth
           ? hasAccessByCodes(Array.isArray(auth) ? auth : [auth])
           : true;
@@ -119,7 +123,7 @@ setupVbenVxeTable({
           unCheckedValue: false,
           ...props,
           checked: row[column.field],
-          disabled: props?.disabled || !hasPermission,
+          disabled: disabled || !hasPermission,
           loading: row[loadingKey] ?? false,
           'onUpdate:checked': onChange,
         };
