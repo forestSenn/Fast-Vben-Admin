@@ -28,6 +28,7 @@ from app.models import (
     UserSession,
     get_datetime_utc,
 )
+from app.modules.access import evaluate_module_access
 
 reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/login/access-token"
@@ -263,6 +264,44 @@ def require_permission(permission_code: str):
         ):
             return current_user
 
+        raise HTTPException(
+            status_code=403, detail="The user doesn't have enough privileges"
+        )
+
+    return dependency
+
+
+MODULE_ACCESS_ERRORS = {
+    "MODULE_NOT_INSTALLED": (404, "Module is not installed"),
+    "MODULE_UNAVAILABLE": (503, "Module is unavailable"),
+    "TENANT_MODULE_ENTITLEMENT_REQUIRED": (403, "Tenant module entitlement is required"),
+    "TENANT_MODULE_DISABLED": (403, "Tenant module is disabled"),
+}
+
+
+def require_module_access(module_code: str, permission_code: str):
+    """Apply module availability and tenant entitlement before RBAC."""
+
+    def dependency(
+        session: SessionDep,
+        current_user: CurrentUser,
+        tenant_context: CurrentTenant,
+    ) -> User:
+        decision = evaluate_module_access(
+            session=session,
+            tenant_id=tenant_context.tenant_id,
+            module_code=module_code,
+        )
+        if not decision.allowed:
+            status_code, detail = MODULE_ACCESS_ERRORS[decision.error_code or "MODULE_UNAVAILABLE"]
+            raise HTTPException(status_code=status_code, detail=detail)
+        if user_has_permission(
+            session=session,
+            current_user=current_user,
+            tenant_id=tenant_context.tenant_id,
+            permission_code=permission_code,
+        ):
+            return current_user
         raise HTTPException(
             status_code=403, detail="The user doesn't have enough privileges"
         )

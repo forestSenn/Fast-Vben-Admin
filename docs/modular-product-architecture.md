@@ -1,10 +1,10 @@
 # 模块化产品架构规划
 
 > 状态：规划中  
-> 更新日期：2026-07-19  
+> 更新日期：2026-07-20
 > 适用范围：Fast Vben Admin 基座及后续 IOA、ERP 等业务系统
 
-关联架构决策见[架构决策记录索引](./adr/README.md)。本规划新增的 ADR-0003 至 ADR-0008 状态为 `Proposed`，通过 Items 模块验证后再转为 `Accepted`。
+关联架构决策见[架构决策记录索引](./adr/README.md)。本规划新增的 ADR-0003 至 ADR-0009 状态为 `Proposed`，通过 Items 模块验证后再转为 `Accepted`。
 
 ## 1. 背景
 
@@ -95,7 +95,7 @@ ERP 负责企业经营领域，例如：
 
 - IOA、ERP 等业务模块必须可以只依赖 `platform` 运行。
 - 业务模块之间默认禁止直接导入代码、直接查询对方数据表或建立数据库外键。
-- 跨模块协作通过稳定接口、领域事件或能力适配器完成。
+- 跨模块协作通过稳定接口、领域事件或能力适配器完成，公开面和依赖方向遵循 [ADR-0009](./adr/0009-module-public-contracts-and-dependency-boundaries.md)。
 - 可选能力必须支持降级。例如 ERP 需要审批时，IOA 存在则使用高级流程；IOA 不存在时使用 ERP 简单审批或明确关闭该功能。
 - 模块依赖必须形成有向无环图，禁止循环依赖。
 
@@ -135,14 +135,22 @@ class ModuleDefinition:
     code: str
     version: str
     dependencies: tuple[str, ...]
+    optional_capabilities: tuple[str, ...]
     routers: tuple[APIRouter, ...]
+    permissions: tuple[PermissionSpec, ...]
+    menus: tuple[MenuSpec, ...]
+    migration: MigrationSpec
+    lifecycle: LifecycleHooks
+    provided_capabilities: tuple[CapabilityProvider, ...]
+    event_subscribers: tuple[EventSubscriber, ...]
+    workers: tuple[WorkerSpec, ...]
+    schedules: tuple[ScheduleSpec, ...]
+    reference_guard: ReferenceGuard | None
 
-    def seed_permissions(self, session: Session) -> None: ...
-    def seed_menus(self, session: Session) -> None: ...
     def health(self) -> dict[str, object]: ...
 ```
 
-具体实现应保持显式注册，避免通过不受控的目录扫描导入任意 Python 模块。
+这里展示的是目标契约的核心形态，不要求所有字段直接使用裸回调。权限、菜单、迁移、生命周期、Worker 和定时任务应使用结构化声明或类型明确的 Provider。具体实现保持显式注册，避免通过不受控的目录扫描导入任意 Python 模块。
 
 ## 6. 推荐目录结构
 
@@ -152,22 +160,38 @@ class ModuleDefinition:
 backend/app/
   api/
   core/
+  contracts/
+    capabilities/
   modules/
     registry.py
     ioa/
       module.py
-      models.py
-      schemas.py
-      services/
+      public_api/
+        queries.py
+        commands.py
+        dto.py
+        events.py
+      domain/
+      application/
+        ports.py
+        services/
+      infrastructure/
       routes/
       permissions.py
       menus.py
       migrations/
     erp/
       module.py
-      models.py
-      schemas.py
-      services/
+      public_api/
+        queries.py
+        commands.py
+        dto.py
+        events.py
+      domain/
+      application/
+        ports.py
+        services/
+      infrastructure/
       routes/
       permissions.py
       menus.py
@@ -317,7 +341,12 @@ erp.*
 
 ## 11. 跨模块集成
 
-同步查询使用内部服务接口，状态传播和业务联动优先使用领域事件。
+同步查询使用模块公开接口，状态传播和业务联动优先使用领域事件。模块公开接口、可选能力和导入方向遵循 [ADR-0009](./adr/0009-module-public-contracts-and-dependency-boundaries.md)：
+
+- 跨模块调用只传公开 DTO、稳定标识和明确的请求上下文，不传 ORM 实体或数据库 Session。
+- 必选依赖只能导入提供方 `public_api`。
+- 可选能力通过稳定能力契约和组合根绑定，消费者不能直接导入可选模块。
+- 平台主数据通过 `platform.public_api` 中的窄接口读取，业务模块不能查询平台表；Router 所需认证和租户上下文通过稳定的 `platform.web_api` 取得。
 
 示例：ERP 采购单需要审批。
 
@@ -392,6 +421,7 @@ fast-vben-suite:<version>
 - 按 ADR-0006 实现模块生命周期、Outbox、投递 Worker 和幂等消费基础设施。
 - 按 ADR-0007 实现平台主数据归档、生命周期事件和跨模块引用检查契约。
 - 按 ADR-0008 拆分平台及模块 OpenAPI 客户端生成流程。
+- 按 ADR-0009 建立 `public_api`、能力 Provider、组合根和自动导入边界检查。
 
 ### 阶段二：验证模块契约
 
@@ -426,6 +456,8 @@ fast-vben-suite:<version>
 
 - 不修改核心路由文件即可注册一个新业务模块。
 - 不修改集中式菜单种子函数即可注册模块菜单和权限。
+- 业务模块只能导入平台及已声明依赖的公开接口，违规导入由 CI 阻止。
+- 可选模块缺失时消费者仍可启动，并执行声明的降级或功能关闭策略。
 - 可以从同一代码库构建四种发行版。
 - `base` 产物不暴露 IOA、ERP 接口或菜单。
 - `ioa`、`erp` 均能在没有对方的情况下正常运行。
@@ -443,6 +475,8 @@ fast-vben-suite:<version>
 - `backend/app/api/main.py` 当前静态导入并注册全部路由，应改由模块注册器装配业务路由。
 - `backend/app/core/db.py` 当前集中维护菜单种子，应允许模块独立提供菜单和权限。
 - `backend/app/models.py` 当前集中维护模型，新业务模型应进入各自模块。
+- 当前业务 Router 直接依赖 `app.models`、`app.api.deps` 等平台内部实现，应按 ADR-0009 逐步改为模块自有模型和平台公开端口。
+- 当前缺少自动导入边界检查，应在 Items 验证阶段增加 AST 或 import-linter 规则。
 - `frontend/apps/web-antd/src/router/access.ts` 当前扫描统一 `views` 目录，应扩展为 edition 生成的模块组件映射。
 - `scripts/generate-openapi.mjs` 当前只生成一份全局客户端，应按 ADR-0008 拆分平台、模块和组合契约。
 - 当前用户删除流程可能物理删除全局用户，引入业务模块前应按 ADR-0007 改为归档或受控匿名化。

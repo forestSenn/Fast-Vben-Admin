@@ -12,6 +12,7 @@
 | [ADR-0006](./0006-module-lifecycle-and-events.md) | 模块生命周期与跨模块事件可靠性 | Proposed |
 | [ADR-0007](./0007-platform-master-data-lifecycle.md) | 平台主数据生命周期与跨模块引用 | Proposed |
 | [ADR-0008](./0008-module-openapi-client-generation.md) | 模块级 OpenAPI 与前端客户端生成 | Proposed |
+| [ADR-0009](./0009-module-public-contracts-and-dependency-boundaries.md) | 模块公开契约与依赖边界 | Proposed |
 
 状态含义：
 

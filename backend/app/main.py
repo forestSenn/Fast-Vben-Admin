@@ -1,14 +1,19 @@
+from contextlib import asynccontextmanager
+
 import sentry_sdk
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
+from sqlmodel import Session
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.main import api_router
 from app.audit import audit_operation_middleware
 from app.core.config import settings
+from app.core.db import engine
 from app.core.metrics import build_metrics_response, metrics_middleware
+from app.modules.access import validate_module_runtime
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
@@ -81,6 +86,10 @@ ERROR_CODE_BY_MESSAGE = {
     "Tenant storage quota exceeded": "TENANT_STORAGE_QUOTA_EXCEEDED",
     "Not enough permissions": "ITEM_FORBIDDEN",
     "The user doesn't have enough privileges": "USER_FORBIDDEN",
+    "Module is not installed": "MODULE_NOT_INSTALLED",
+    "Module is unavailable": "MODULE_UNAVAILABLE",
+    "Tenant module entitlement is required": "TENANT_MODULE_ENTITLEMENT_REQUIRED",
+    "Tenant module is disabled": "TENANT_MODULE_DISABLED",
 }
 
 
@@ -100,10 +109,19 @@ def error_response(
 if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
     sentry_sdk.init(dsn=str(settings.SENTRY_DSN), enable_tracing=True)
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    with Session(engine) as session:
+        validate_module_runtime(session)
+    yield
+
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     generate_unique_id_function=custom_generate_unique_id,
+    lifespan=lifespan,
 )
 
 app.middleware("http")(audit_operation_middleware)

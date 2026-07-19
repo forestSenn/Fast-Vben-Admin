@@ -61,7 +61,7 @@ jobs:
 
       - name: Run migrations
         working-directory: backend
-        run: uv run alembic upgrade head
+        run: uv run python -m app.modules.migrate --edition suite
 
       - name: Test
         working-directory: backend

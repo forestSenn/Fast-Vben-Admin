@@ -58,6 +58,7 @@ services:
     environment:
       POSTGRES_SERVER: db
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      APP_EDITION: ${APP_EDITION:-suite}
 
   backend:
     build:
@@ -74,6 +75,7 @@ services:
     environment:
       POSTGRES_SERVER: db
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      APP_EDITION: ${APP_EDITION:-suite}
     volumes:
       - app-uploads:/app/backend/uploads
     healthcheck:
@@ -87,6 +89,24 @@ services:
       retries: 5
     ports:
       - "8000:8000"
+
+  outbox-worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      prestart:
+        condition: service_completed_successfully
+    command: python -m app.modules.outbox_worker
+    env_file:
+      - .env
+    environment:
+      POSTGRES_SERVER: db
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      APP_EDITION: ${APP_EDITION:-suite}
 
   frontend:
     build:

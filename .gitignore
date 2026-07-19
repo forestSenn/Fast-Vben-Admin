@@ -15,6 +15,7 @@ node_modules/
 dist/
 coverage/
 backend/uploads/
+backend/build/
 *.zip
 
 .DS_Store

@@ -29,17 +29,19 @@ def upgrade() -> None:
             server_default=sa.func.now(),
         ),
     )
-    op.add_column(
-        "item",
-        sa.Column(
-            "updated_at",
-            sa.DateTime(timezone=True),
-            nullable=True,
-            server_default=sa.func.now(),
-        ),
-    )
+    if sa.inspect(op.get_bind()).has_table("item"):
+        op.add_column(
+            "item",
+            sa.Column(
+                "updated_at",
+                sa.DateTime(timezone=True),
+                nullable=True,
+                server_default=sa.func.now(),
+            ),
+        )
 
 
 def downgrade() -> None:
-    op.drop_column("item", "updated_at")
+    if sa.inspect(op.get_bind()).has_table("item"):
+        op.drop_column("item", "updated_at")
     op.drop_column("user", "updated_at")

@@ -1071,7 +1071,7 @@ def seed_menus(*, session: Session) -> list[Menu]:
         type="menu",
         route_path="/items",
         route_name="Items",
-        component="#/views/items/index.vue",
+        component="#/modules/items/views/index.vue",
         icon="lucide:list-todo",
         permission_code="business:item:list",
         sort=20,

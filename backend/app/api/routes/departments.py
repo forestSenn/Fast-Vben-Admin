@@ -19,6 +19,7 @@ from app.models import (
     TenantMembership,
     get_datetime_utc,
 )
+from app.modules.outbox import enqueue_event
 
 router = APIRouter(prefix="/departments", tags=["departments"])
 
@@ -55,6 +56,7 @@ def get_department_or_404(
         select(Department).where(
             Department.id == department_id,
             Department.tenant_id == tenant_id,
+            Department.archived_at.is_(None),
         )
     ).first()
     if department is None:
@@ -77,7 +79,10 @@ def read_departments(
     page, page_size = normalize_pagination(
         page=page, page_size=page_size, max_page_size=500
     )
-    filters = [Department.tenant_id == tenant_context.tenant_id]
+    filters = [
+        Department.tenant_id == tenant_context.tenant_id,
+        Department.archived_at.is_(None),
+    ]
     if keyword:
         pattern = f"%{keyword}%"
         filters.append(
@@ -256,6 +261,22 @@ def delete_department(
     if bound_user:
         raise HTTPException(status_code=400, detail="Department has users")
 
-    session.delete(department)
+    now = get_datetime_utc()
+    department.is_active = False
+    department.archived_at = now
+    department.updated_at = now
+    session.add(department)
+    enqueue_event(
+        session=session,
+        module_code="platform",
+        event_type="platform.department.archived",
+        tenant_id=tenant_context.tenant_id,
+        aggregate_id=str(department.id),
+        payload={
+            "department_id": str(department.id),
+            "tenant_id": str(tenant_context.tenant_id),
+            "name": department.name,
+        },
+    )
     session.commit()
     return Response(status_code=204)

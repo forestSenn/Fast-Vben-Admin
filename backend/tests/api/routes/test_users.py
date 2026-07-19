@@ -781,8 +781,11 @@ def test_delete_user_super_user(
     )
     assert r.status_code == 204
     assert not r.content
+    db.expire_all()
     result = db.exec(select(User).where(User.id == user_id)).first()
-    assert result is None
+    assert result is not None
+    assert not result.is_active
+    assert result.archived_at is not None
 
 
 def test_delete_user_not_found(

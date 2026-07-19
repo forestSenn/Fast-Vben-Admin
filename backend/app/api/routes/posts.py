@@ -19,6 +19,7 @@ from app.models import (
     UserPost,
     get_datetime_utc,
 )
+from app.modules.outbox import enqueue_event
 
 router = APIRouter(prefix="/posts", tags=["posts"])
 
@@ -27,7 +28,11 @@ def get_post_or_404(
     *, session: SessionDep, tenant_id: uuid.UUID, post_id: uuid.UUID
 ) -> Post:
     post = session.exec(
-        select(Post).where(Post.id == post_id, Post.tenant_id == tenant_id)
+        select(Post).where(
+            Post.id == post_id,
+            Post.tenant_id == tenant_id,
+            Post.archived_at.is_(None),
+        )
     ).first()
     if post is None:
         raise HTTPException(status_code=404, detail="Post not found")
@@ -48,7 +53,7 @@ def read_posts(
     is_active: bool | None = None,
 ) -> Any:
     page, page_size = normalize_pagination(page=page, page_size=page_size)
-    filters = [Post.tenant_id == tenant_context.tenant_id]
+    filters = [Post.tenant_id == tenant_context.tenant_id, Post.archived_at.is_(None)]
     if keyword:
         pattern = f"%{keyword}%"
         filters.append(
@@ -166,6 +171,22 @@ def delete_post(
     if bound_user:
         raise HTTPException(status_code=400, detail="Post has users")
 
-    session.delete(post)
+    now = get_datetime_utc()
+    post.is_active = False
+    post.archived_at = now
+    post.updated_at = now
+    session.add(post)
+    enqueue_event(
+        session=session,
+        module_code="platform",
+        event_type="platform.post.archived",
+        tenant_id=tenant_context.tenant_id,
+        aggregate_id=str(post.id),
+        payload={
+            "post_id": str(post.id),
+            "tenant_id": str(tenant_context.tenant_id),
+            "name": post.name,
+        },
+    )
     session.commit()
     return Response(status_code=204)

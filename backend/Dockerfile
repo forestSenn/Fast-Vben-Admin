@@ -18,5 +18,6 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 COPY ./backend/scripts ./scripts
 COPY ./backend/app ./app
+COPY ./editions /app/editions
 
 CMD ["fastapi", "run", "app/main.py", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]

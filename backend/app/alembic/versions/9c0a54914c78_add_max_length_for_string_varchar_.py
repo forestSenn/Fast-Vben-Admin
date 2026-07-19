@@ -30,17 +30,15 @@ def upgrade():
                type_=sa.String(length=255),
                existing_nullable=True)
 
-    # Adjust the length of the title field in the Item table
-    op.alter_column('item', 'title',
-               existing_type=sa.String(),
-               type_=sa.String(length=255),
-               existing_nullable=False)
-
-    # Adjust the length of the description field in the Item table
-    op.alter_column('item', 'description',
-               existing_type=sa.String(),
-               type_=sa.String(length=255),
-               existing_nullable=True)
+    if sa.inspect(op.get_bind()).has_table("item"):
+        op.alter_column('item', 'title',
+                   existing_type=sa.String(),
+                   type_=sa.String(length=255),
+                   existing_nullable=False)
+        op.alter_column('item', 'description',
+                   existing_type=sa.String(),
+                   type_=sa.String(length=255),
+                   existing_nullable=True)
 
 
 def downgrade():
@@ -56,14 +54,12 @@ def downgrade():
                type_=sa.String(),
                existing_nullable=True)
 
-    # Revert the length of the title field in the Item table
-    op.alter_column('item', 'title',
-               existing_type=sa.String(length=255),
-               type_=sa.String(),
-               existing_nullable=False)
-
-    # Revert the length of the description field in the Item table
-    op.alter_column('item', 'description',
-               existing_type=sa.String(length=255),
-               type_=sa.String(),
-               existing_nullable=True)
+    if sa.inspect(op.get_bind()).has_table("item"):
+        op.alter_column('item', 'title',
+                   existing_type=sa.String(length=255),
+                   type_=sa.String(),
+                   existing_nullable=False)
+        op.alter_column('item', 'description',
+                   existing_type=sa.String(length=255),
+                   type_=sa.String(),
+                   existing_nullable=True)

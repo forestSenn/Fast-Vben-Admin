@@ -8,7 +8,6 @@ from app.core.config import settings
 from app.models import (
     DataScope,
     Department,
-    Item,
     Menu,
     Role,
     RoleDataScopeDepartment,
@@ -18,9 +17,20 @@ from app.models import (
     UserCreate,
     UserRole,
 )
+from app.modules.items.infrastructure.models import Item
 from tests.utils.item import create_random_item
 from tests.utils.user import user_authentication_headers
 from tests.utils.utils import random_email, random_lower_string
+
+
+def test_build_manifest(client: TestClient) -> None:
+    response = client.get(f"{settings.API_V1_STR}/platform/modules/manifest")
+
+    assert response.status_code == 200
+    content = response.json()
+    assert content["edition"] == "suite"
+    assert [module["code"] for module in content["modules"]] == ["platform", "items"]
+    assert content["manifest_digest"].startswith("sha256:")
 
 
 def test_create_item(

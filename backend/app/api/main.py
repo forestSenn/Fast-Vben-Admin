@@ -1,54 +1,28 @@
 from fastapi import APIRouter
 
-from app.api.routes import (
-    dashboard,
-    departments,
-    dictionaries,
-    files,
-    items,
-    login,
-    logs,
-    mail,
-    menus,
-    notices,
-    oauth2,
-    permissions,
-    posts,
-    private,
-    roles,
-    site_messages,
-    sms,
-    social,
-    tenants,
-    users,
-    utils,
-)
-from app.api.routes import settings as system_settings
+from app.api.routes import private
 from app.core.config import settings
-
-api_router = APIRouter()
-api_router.include_router(login.router)
-api_router.include_router(dashboard.router)
-api_router.include_router(users.router)
-api_router.include_router(utils.router)
-api_router.include_router(items.router)
-api_router.include_router(logs.router)
-api_router.include_router(roles.router)
-api_router.include_router(menus.router)
-api_router.include_router(notices.router)
-api_router.include_router(permissions.router)
-api_router.include_router(posts.router)
-api_router.include_router(departments.router)
-api_router.include_router(dictionaries.router)
-api_router.include_router(system_settings.router)
-api_router.include_router(files.router)
-api_router.include_router(sms.router)
-api_router.include_router(mail.router)
-api_router.include_router(site_messages.router)
-api_router.include_router(oauth2.router)
-api_router.include_router(social.router)
-api_router.include_router(tenants.router)
+from app.modules.manifest import build_manifest, load_manifest_file
+from app.modules.registry import get_module_definitions, get_module_routers
 
 
-if settings.ENVIRONMENT == "local":
-    api_router.include_router(private.router)
+def get_current_manifest():
+    if settings.BUILD_MANIFEST_PATH is not None:
+        return load_manifest_file(settings.BUILD_MANIFEST_PATH)
+    return build_manifest(edition=settings.APP_EDITION)
+
+
+def create_api_router(*, edition: str | None = None) -> APIRouter:
+    manifest = build_manifest(edition=edition) if edition else get_current_manifest()
+    definitions = get_module_definitions()
+    enabled_definitions = [definitions[module.code] for module in manifest.modules]
+
+    api_router = APIRouter()
+    for router in get_module_routers(enabled_definitions):
+        api_router.include_router(router)
+    if settings.ENVIRONMENT == "local":
+        api_router.include_router(private.router)
+    return api_router
+
+
+api_router = create_api_router()

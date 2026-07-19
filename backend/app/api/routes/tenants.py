@@ -59,6 +59,7 @@ from app.models import (
     UserSession,
     get_datetime_utc,
 )
+from app.modules.outbox import enqueue_event
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
 logger = logging.getLogger(__name__)
@@ -1209,6 +1210,15 @@ def operate_tenant_lifecycle(
     session.add(tenant)
     if was_active and not tenant.is_active:
         revoke_tenant_sessions(session=session, tenant_id=tenant.id)
+    if body.action == TenantLifecycleAction.ARCHIVE:
+        enqueue_event(
+            session=session,
+            module_code="platform",
+            event_type="platform.tenant.archived",
+            tenant_id=tenant.id,
+            aggregate_id=str(tenant.id),
+            payload={"tenant_id": str(tenant.id), "tenant_code": tenant.code},
+        )
     session.commit()
     session.refresh(tenant)
     return build_tenant_public(session=session, tenant=tenant)
@@ -1325,5 +1335,13 @@ def archive_tenant(*, session: SessionDep, tenant_id: uuid.UUID) -> Response:
     session.add(tenant)
     session.add(profile)
     revoke_tenant_sessions(session=session, tenant_id=tenant.id)
+    enqueue_event(
+        session=session,
+        module_code="platform",
+        event_type="platform.tenant.archived",
+        tenant_id=tenant.id,
+        aggregate_id=str(tenant.id),
+        payload={"tenant_id": str(tenant.id), "tenant_code": tenant.code},
+    )
     session.commit()
     return Response(status_code=204)

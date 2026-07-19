@@ -171,7 +171,7 @@ pnpm frontend:e2e
 pnpm generate:api
 ```
 
-根目录的 `pnpm generate:api` 直接从当前后端代码导出临时 OpenAPI Schema，并将生成文件写入 `frontend/apps/web-antd/src/api/generated`，无需预先启动 `localhost:8000`。
+根目录的 `pnpm generate:api -- --edition suite` 会从当前后端组合导出临时 OpenAPI Schema，分别生成平台和模块客户端，无需预先启动 `localhost:8000`。
 
 ## 部署
 

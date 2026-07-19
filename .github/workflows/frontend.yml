@@ -84,11 +84,18 @@ jobs:
         working-directory: frontend
         run: pnpm install --frozen-lockfile
 
-      - name: Regenerate OpenAPI client
-        run: pnpm generate:api
+      - name: Generate Base edition client
+        run: pnpm generate:api -- --edition base
 
-      - name: Check generated client drift
-        run: git diff --exit-code -- frontend/apps/web-antd/src/api/generated
+      - name: Generate Suite edition clients
+        run: pnpm generate:api -- --edition suite
+
+      - name: Check generated client and edition registry drift
+        run: >-
+          git diff --exit-code --
+          frontend/apps/web-antd/src/api/generated
+          frontend/apps/web-antd/src/modules
+          frontend/apps/web-antd/src/router/generated-module-pages.ts
 
   e2e:
     runs-on: ubuntu-latest
@@ -162,7 +169,7 @@ jobs:
 
       - name: Run migrations
         working-directory: backend
-        run: uv run alembic upgrade head
+        run: uv run python -m app.modules.migrate --edition suite
 
       - name: Seed initial data
         working-directory: backend

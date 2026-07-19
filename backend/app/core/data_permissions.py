@@ -41,14 +41,32 @@ def build_owner_data_scope_filter(
     owner_id_column: Any,
 ) -> Any:
     """Build the tenant-local owner predicate granted by the user's active roles."""
-    if current_user.is_superuser:
+    return build_owner_data_scope_filter_for_principal(
+        session=session,
+        principal_id=current_user.id,
+        is_superuser=current_user.is_superuser,
+        tenant_id=tenant_id,
+        owner_id_column=owner_id_column,
+    )
+
+
+def build_owner_data_scope_filter_for_principal(
+    *,
+    session: Session,
+    principal_id: uuid.UUID,
+    is_superuser: bool,
+    tenant_id: uuid.UUID,
+    owner_id_column: Any,
+) -> Any:
+    """Build a scope predicate from stable principal fields, not an ORM user."""
+    if is_superuser:
         return true()
 
     roles = session.exec(
         select(Role)
         .join(UserRole, UserRole.role_id == Role.id)
         .where(
-            UserRole.user_id == current_user.id,
+            UserRole.user_id == principal_id,
             UserRole.tenant_id == tenant_id,
             Role.tenant_id == tenant_id,
             Role.is_active,
@@ -59,7 +77,7 @@ def build_owner_data_scope_filter(
 
     membership = session.exec(
         select(TenantMembership).where(
-            TenantMembership.user_id == current_user.id,
+            TenantMembership.user_id == principal_id,
             TenantMembership.tenant_id == tenant_id,
             TenantMembership.is_active,
         )
@@ -88,7 +106,7 @@ def build_owner_data_scope_filter(
             ).all()
         )
 
-    predicates = [owner_id_column == current_user.id]
+    predicates = [owner_id_column == principal_id]
     if department_ids:
         scoped_user_ids = select(TenantMembership.user_id).where(
             TenantMembership.tenant_id == tenant_id,

@@ -1,8 +1,8 @@
 from sqlmodel import Session
 
-from app import crud
 from app.core.tenancy import get_active_tenant_membership
-from app.models import Item, ItemCreate
+from app.modules.items.infrastructure.models import Item
+from app.modules.items.public_api.dto import ItemCreate
 from tests.utils.user import create_random_user
 from tests.utils.utils import random_lower_string
 
@@ -17,9 +17,11 @@ def create_random_item(db: Session) -> Item:
     membership = get_active_tenant_membership(session=db, user_id=owner_id)
     assert membership is not None
     _, tenant = membership
-    return crud.create_item(
-        session=db,
-        item_in=item_in,
-        owner_id=owner_id,
-        tenant_id=tenant.id,
+    item = Item.model_validate(
+        item_in,
+        update={"owner_id": owner_id, "tenant_id": tenant.id},
     )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item

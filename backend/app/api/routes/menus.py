@@ -23,6 +23,7 @@ from app.models import (
     UserRole,
     get_datetime_utc,
 )
+from app.modules.access import filter_module_scoped_permissions
 
 router = APIRouter(prefix="/menus", tags=["menus"])
 
@@ -127,7 +128,20 @@ def read_my_menus(
             )
             .order_by(col(Menu.sort), col(Menu.created_at))
         ).all()
-    menus_public = [MenuPublic.model_validate(menu) for menu in menus]
+    visible_permission_codes = set(
+        filter_module_scoped_permissions(
+            session=session,
+            tenant_id=tenant_context.tenant_id,
+            permission_codes=[
+                menu.permission_code for menu in menus if menu.permission_code is not None
+            ],
+        )
+    )
+    menus_public = [
+        MenuPublic.model_validate(menu)
+        for menu in menus
+        if menu.permission_code is None or menu.permission_code in visible_permission_codes
+    ]
     redis_cache.set_json(
         cache_key,
         [menu.model_dump(mode="json") for menu in menus_public],
@@ -174,7 +188,13 @@ def read_my_permissions(
             )
         ).all()
     resolved_permissions = sorted(
-        {permission for permission in permissions if permission}
+        set(
+            filter_module_scoped_permissions(
+                session=session,
+                tenant_id=tenant_context.tenant_id,
+                permission_codes=[permission for permission in permissions if permission],
+            )
+        )
     )
     redis_cache.set_json(cache_key, resolved_permissions)
     return resolved_permissions

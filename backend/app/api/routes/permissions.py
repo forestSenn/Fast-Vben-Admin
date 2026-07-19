@@ -6,6 +6,7 @@ from sqlmodel import select
 from app.api.deps import CurrentTenant, CurrentUser, SessionDep
 from app.core.cache import CacheNamespace, redis_cache
 from app.models import Menu, Role, RoleMenu, UserRole
+from app.modules.access import filter_module_scoped_permissions
 
 router = APIRouter(prefix="/permissions", tags=["permissions"])
 
@@ -49,7 +50,13 @@ def read_my_permissions(
             )
         ).all()
     resolved_permissions = sorted(
-        {permission for permission in permissions if permission}
+        set(
+            filter_module_scoped_permissions(
+                session=session,
+                tenant_id=tenant_context.tenant_id,
+                permission_codes=[permission for permission in permissions if permission],
+            )
+        )
     )
     redis_cache.set_json(cache_key, resolved_permissions)
     return resolved_permissions

@@ -99,28 +99,30 @@ def upgrade() -> None:
         unique=False,
     )
 
-    op.add_column("item", sa.Column("tenant_id", sa.UUID(), nullable=True))
-    op.execute(
-        sa.text("UPDATE item SET tenant_id = CAST(:tenant_id AS UUID)").bindparams(
-            tenant_id=DEFAULT_TENANT_ID
+    if sa.inspect(op.get_bind()).has_table("item"):
+        op.add_column("item", sa.Column("tenant_id", sa.UUID(), nullable=True))
+        op.execute(
+            sa.text("UPDATE item SET tenant_id = CAST(:tenant_id AS UUID)").bindparams(
+                tenant_id=DEFAULT_TENANT_ID
+            )
         )
-    )
-    op.alter_column("item", "tenant_id", nullable=False)
-    op.create_foreign_key(
-        "fk_item_tenant_id_tenant",
-        "item",
-        "tenant",
-        ["tenant_id"],
-        ["id"],
-        ondelete="RESTRICT",
-    )
-    op.create_index(op.f("ix_item_tenant_id"), "item", ["tenant_id"], unique=False)
+        op.alter_column("item", "tenant_id", nullable=False)
+        op.create_foreign_key(
+            "fk_item_tenant_id_tenant",
+            "item",
+            "tenant",
+            ["tenant_id"],
+            ["id"],
+            ondelete="RESTRICT",
+        )
+        op.create_index(op.f("ix_item_tenant_id"), "item", ["tenant_id"], unique=False)
 
 
 def downgrade() -> None:
-    op.drop_index(op.f("ix_item_tenant_id"), table_name="item")
-    op.drop_constraint("fk_item_tenant_id_tenant", "item", type_="foreignkey")
-    op.drop_column("item", "tenant_id")
+    if sa.inspect(op.get_bind()).has_table("item"):
+        op.drop_index(op.f("ix_item_tenant_id"), table_name="item")
+        op.drop_constraint("fk_item_tenant_id_tenant", "item", type_="foreignkey")
+        op.drop_column("item", "tenant_id")
     op.drop_index(op.f("ix_usersession_tenant_id"), table_name="usersession")
     op.drop_constraint(
         "fk_usersession_tenant_id_tenant", "usersession", type_="foreignkey"

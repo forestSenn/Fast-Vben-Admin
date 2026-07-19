@@ -34,7 +34,7 @@ from app.core.quotas import ensure_member_quota
 from app.core.security import get_password_hash, verify_password
 from app.models import (
     Department,
-    Item,
+    MasterDataAnonymizeRequest,
     Message,
     Post,
     PostPublic,
@@ -60,6 +60,7 @@ from app.models import (
     UserUpdateMe,
     get_datetime_utc,
 )
+from app.modules.outbox import enqueue_event
 from app.utils import generate_new_account_email, send_email
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -988,7 +989,6 @@ def update_user_posts(
         tenant_id=tenant_context.tenant_id,
         user_id=user_id,
     )
-    ensure_user_is_mutable(user)
     if body.post_ids:
         post_count = session.exec(
             select(func.count())
@@ -1000,6 +1000,7 @@ def update_user_posts(
         ).one()
         if post_count != len(set(body.post_ids)):
             raise HTTPException(status_code=400, detail="Some posts do not exist")
+    ensure_user_is_mutable(user)
 
     session.exec(
         delete(UserPost).where(
@@ -1050,7 +1051,10 @@ def update_user(
         tenant_id=tenant_context.tenant_id,
         user_id=user_id,
     )
-    ensure_user_is_mutable(db_user)
+    # The built-in administrator's identity is protected, while its
+    # tenant-specific department assignment remains administrable per tenant.
+    if user_in.model_fields_set - {"department_id"}:
+        ensure_user_is_mutable(db_user)
     if db_user.is_superuser and not current_user.is_superuser:
         raise HTTPException(
             status_code=403, detail="The user doesn't have enough privileges"
@@ -1150,10 +1154,6 @@ def delete_user(
                 status_code=400,
                 detail="Cannot delete the last superuser",
             )
-    statement = delete(Item).where(
-        col(Item.owner_id) == user_id, Item.tenant_id == tenant_context.tenant_id
-    )
-    session.exec(statement)
     memberships_count = session.exec(
         select(func.count())
         .select_from(TenantMembership)
@@ -1165,9 +1165,11 @@ def delete_user(
             UserSession.tenant_id == tenant_context.tenant_id,
         )
     )
+    was_default = membership.is_default
+    membership.is_active = False
+    membership.is_default = False
+    session.add(membership)
     if memberships_count > 1:
-        was_default = membership.is_default
-        session.delete(membership)
         if was_default:
             next_membership = session.exec(
                 select(TenantMembership)
@@ -1182,6 +1184,70 @@ def delete_user(
                 next_membership.is_default = True
                 session.add(next_membership)
     else:
-        session.delete(user)
+        user.is_active = False
+        user.archived_at = get_datetime_utc()
+        session.add(user)
+    enqueue_event(
+        session=session,
+        module_code="platform",
+        event_type="platform.user.archived",
+        tenant_id=tenant_context.tenant_id,
+        aggregate_id=str(user.id),
+        payload={
+            "user_id": str(user.id),
+            "tenant_id": str(tenant_context.tenant_id),
+            "full_name": user.full_name,
+        },
+    )
     session.commit()
     return None
+
+
+@router.post(
+    "/{user_id}/anonymize",
+    dependencies=[Depends(require_permission("system:user:delete"))],
+    response_model=UserPublic,
+)
+def anonymize_user(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    tenant_context: CurrentTenant,
+    user_id: uuid.UUID,
+    body: MasterDataAnonymizeRequest,
+) -> UserPublic:
+    user = session.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    ensure_user_in_data_scope(
+        session=session,
+        current_user=current_user,
+        tenant_id=tenant_context.tenant_id,
+        user_id=user_id,
+    )
+    ensure_user_is_mutable(user)
+    now = get_datetime_utc()
+    user.email = f"anonymous-{user.id}@invalid.local"
+    user.mobile = None
+    user.full_name = "Anonymous"
+    user.avatar_url = None
+    user.is_active = False
+    user.archived_at = user.archived_at or now
+    user.anonymized_at = now
+    user.updated_at = now
+    session.add(user)
+    enqueue_event(
+        session=session,
+        module_code="platform",
+        event_type="platform.user.anonymized",
+        tenant_id=tenant_context.tenant_id,
+        aggregate_id=str(user.id),
+        payload={
+            "user_id": str(user.id),
+            "tenant_id": str(tenant_context.tenant_id),
+            "reason": body.reason,
+        },
+    )
+    session.commit()
+    session.refresh(user)
+    return UserPublic.model_validate(user)

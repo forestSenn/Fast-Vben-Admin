@@ -27,7 +27,9 @@ def test_required_permissions_are_seeded(db: Session) -> None:
     required_permissions: set[str] = set()
 
     for route_file in (backend_root / "app" / "api" / "routes").glob("*.py"):
-        required_permissions.update(permission_pattern.findall(route_file.read_text()))
+        required_permissions.update(
+            permission_pattern.findall(route_file.read_text(encoding="utf-8"))
+        )
 
     seeded_permissions = {
         permission
