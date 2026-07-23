@@ -1,8 +1,5 @@
 <script lang="ts" setup>
-import type {
-  OnActionClickParams,
-  VxeTableGridOptions,
-} from '#/adapter/vxe-table';
+import type { VxeTableGridOptions } from '#/adapter/vxe-table';
 import type { FormInstance } from 'ant-design-vue';
 import type {
   ProductCategoryRecord,
@@ -13,7 +10,7 @@ import type {
 import { reactive, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
-import { Paintbrush, Plus } from '@vben/icons';
+import { Plus } from '@vben/icons';
 
 import {
   Button,
@@ -21,12 +18,11 @@ import {
   Form,
   Input,
   InputNumber,
-  Popconfirm,
   Switch,
   Tag,
 } from 'ant-design-vue';
 
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { useVbenVxeGrid, VbenTableAction } from '#/adapter/vxe-table';
 import ExportCsvButton from '#/modules/erp/components/export-csv-button.vue';
 import ErpRemoteSelect from '#/modules/erp/components/erp-remote-select.vue';
 import {
@@ -113,7 +109,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
         fixed: 'right',
         slots: { default: 'operation' },
         title: '操作',
-        width: 128,
+        width: 180,
       },
     ],
     height: 'auto',
@@ -229,9 +225,6 @@ async function removeProduct(row: ProductRecord) {
   gridApi.query();
 }
 
-function onActionClick({ code, row }: OnActionClickParams<ProductRecord>) {
-  if (code === 'edit') void openEdit(row);
-}
 </script>
 
 <template>
@@ -240,13 +233,12 @@ function onActionClick({ code, row }: OnActionClickParams<ProductRecord>) {
       v-model:open="drawerOpen"
       :confirm-loading="saving"
       :title="editingId ? '编辑商品' : '新增商品'"
-      class="erp-product-drawer"
+      class="w-[min(720px,calc(100vw-24px))]"
       placement="right"
-      width="560"
       @close="resetForm"
     >
-      <Form ref="formRef" :model="productForm" layout="vertical">
-        <div class="grid grid-cols-2 gap-x-4">
+      <Form ref="formRef" class="mx-3" :model="productForm" layout="vertical">
+        <div class="grid grid-cols-1 gap-x-4 md:grid-cols-2">
           <Form.Item
             label="商品编码"
             name="code"
@@ -334,58 +326,63 @@ function onActionClick({ code, row }: OnActionClickParams<ProductRecord>) {
         </Form.Item>
       </Form>
       <template #footer>
-        <Button @click="drawerOpen = false">取消</Button>
-        <Button :loading="saving" type="primary" @click="submit"
-          >保存商品</Button
-        >
+        <div class="flex justify-end gap-2">
+          <Button @click="drawerOpen = false">取消</Button>
+          <Button :loading="saving" type="primary" @click="submit">保存商品</Button>
+        </div>
       </template>
     </Drawer>
 
     <Grid table-title="商品主数据">
       <template #toolbar-tools>
-        <ExportCsvButton
-          file-name="products.csv"
-          permission="erp:product:export"
-          :query="exportQuery"
-          resource="product"
-        />
-        <Button
-          v-access:code="'erp:product:create'"
-          type="primary"
-          @click="openCreate"
-        >
-          <Plus class="size-5" />
-          新增商品
-        </Button>
+        <div class="flex items-center gap-1">
+          <Button
+            v-access:code="'erp:product:create'"
+            class="gap-1"
+            type="primary"
+            @click="openCreate"
+          >
+            <Plus class="size-5" />
+            <span>新增商品</span>
+          </Button>
+          <ExportCsvButton
+            file-name="商品列表.csv"
+            permission="erp:product:export"
+            :query="exportQuery"
+            resource="product"
+          />
+        </div>
       </template>
       <template #status="{ row }">
-        <Tag :color="row.is_active ? 'green' : 'default'">
+        <Tag :color="row.is_active ? 'success' : 'default'">
           {{ row.is_active ? '启用' : '停用' }}
         </Tag>
       </template>
       <template #operation="{ row }">
-        <Button
-          v-access:code="'erp:product:update'"
-          size="small"
-          type="link"
-          @click="onActionClick({ code: 'edit', row })"
-        >
-          <Paintbrush class="size-4" />
-          编辑
-        </Button>
-        <Popconfirm
-          title="删除后无法恢复。确定删除该商品吗？"
-          @confirm="removeProduct(row)"
-        >
-          <Button
-            v-access:code="'erp:product:delete'"
-            danger
-            size="small"
-            type="link"
-          >
-            删除
-          </Button>
-        </Popconfirm>
+        <VbenTableAction
+          :actions="[
+            {
+              auth: ['erp:product:update'],
+              icon: 'lucide:square-pen',
+              onClick: openEdit.bind(null, row),
+              text: '编辑',
+              variant: 'link',
+            },
+            {
+              auth: ['erp:product:delete'],
+              danger: true,
+              icon: 'lucide:trash-2',
+              popConfirm: {
+                cancelText: '取消',
+                confirm: removeProduct.bind(null, row),
+                okText: '确认',
+                title: `确认删除商品 ${row.name} 吗？`,
+              },
+              text: '删除',
+              variant: 'link',
+            },
+          ]"
+        />
       </template>
     </Grid>
   </Page>

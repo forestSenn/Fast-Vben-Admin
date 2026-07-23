@@ -17,6 +17,7 @@ from app.models import (
     UserCreate,
     UserRole,
 )
+from app.modules.erp.module import definition as erp_definition
 from tests.utils.user import user_authentication_headers
 from tests.utils.utils import random_lower_string
 
@@ -38,6 +39,16 @@ def test_required_permissions_are_seeded(db: Session) -> None:
     }
 
     assert required_permissions <= seeded_permissions
+
+
+def test_erp_module_permissions_are_seeded(db: Session) -> None:
+    seeded_permissions = {
+        permission
+        for permission in db.exec(select(Menu.permission_code)).all()
+        if permission
+    }
+
+    assert set(erp_definition.menus) <= seeded_permissions
 
 
 def test_seeded_menu_components_exist(db: Session) -> None:

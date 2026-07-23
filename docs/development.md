@@ -19,7 +19,7 @@ $env:POSTGRES_USER='postgres'
 $env:POSTGRES_PASSWORD='changethis'
 cd backend
 uv run python -m app.modules.migrate --edition suite
-uv run python app/initial_data.py
+uv run python -m app.initial_data
 uv run fastapi dev app/main.py
 ```
 
@@ -90,7 +90,7 @@ pnpm --dir frontend generate:api
 
 - `base`：仅平台基座。
 - `items`：平台基座和 Items 模块。
-- `suite`：当前默认发行版，包含所有已交付模块，即平台基座和 Items。
+- `suite`：当前默认发行版，包含所有已交付模块，即平台基座、Items 和 ERP。
 
 开发环境默认使用 `suite`。生成可随镜像发布的 Manifest：
 

@@ -17,7 +17,7 @@ import { Download, RotateCw, Search } from '@vben/icons';
 
 import { Button, Input, Select, Segmented } from 'ant-design-vue';
 
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { useVbenVxeGrid, VbenTableAction } from '#/adapter/vxe-table';
 import { downloadApi } from '#/api';
 import ErpRemoteSelect from '#/modules/erp/components/erp-remote-select.vue';
 import LedgerSourceDocument from '#/modules/erp/components/ledger-source-document.vue';
@@ -256,10 +256,12 @@ async function loadWarehouses(keyword: string) {
           v-access:code="
             view === 'balance' ? 'erp:stock:export' : 'erp:stock-record:export'
           "
+          class="gap-1"
           title="导出当前筛选"
           @click="exportCurrentView"
         >
           <Download class="size-4" />
+          <span>导出</span>
         </Button>
         <Segmented
           v-if="!isDedicatedPage"
@@ -273,7 +275,7 @@ async function loadWarehouses(keyword: string) {
       </div>
     </div>
 
-    <div class="mb-4 flex flex-wrap items-center gap-2">
+    <div class="mb-3 flex flex-wrap items-center gap-2">
       <ErpRemoteSelect
         v-if="view === 'balance'"
         v-model:value="balanceFilters.product_id"
@@ -373,7 +375,11 @@ async function loadWarehouses(keyword: string) {
 
     <BalanceGrid v-if="view === 'balance'" table-title="库存余额">
       <template #operation="{ row }">
-        <Button v-access:code="'erp:stock-record:list'" size="small" type="link" @click="openLedger(row)">明细</Button>
+        <VbenTableAction
+          :actions="[
+            { auth: ['erp:stock-record:list'], icon: 'lucide:eye', onClick: openLedger.bind(null, row), text: '明细', variant: 'link' },
+          ]"
+        />
       </template>
     </BalanceGrid>
     <LedgerGrid v-else table-title="库存流水">

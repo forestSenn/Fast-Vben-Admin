@@ -41,6 +41,7 @@ const pieceStyle = computed(() => ({
 }));
 
 const barStyle = computed(() => ({ width: `${leftBarWidth.value}px` }));
+const moveBlockStyle = computed(() => ({ left: `${moveBlockLeft.value}px` }));
 
 function onPointerDown(event: PointerEvent) {
   if (passFlag.value || !barElement.value) return;
@@ -140,7 +141,13 @@ defineExpose({ refresh });
     <div ref="barElement" class="verify-bar-area">
       <div class="verify-left-bar" :style="barStyle"></div>
       <span class="verify-msg">{{ text }}</span>
-      <div class="verify-move-block" @pointerdown="onPointerDown">{{ passFlag ? '✓' : '➜' }}</div>
+      <div
+        class="verify-move-block"
+        :style="moveBlockStyle"
+        @pointerdown="onPointerDown"
+      >
+        {{ passFlag ? '✓' : '➜' }}
+      </div>
     </div>
   </div>
 </template>

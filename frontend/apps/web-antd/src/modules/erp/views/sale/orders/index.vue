@@ -16,13 +16,11 @@ import {
   Drawer,
   Input,
   InputNumber,
-  Popconfirm,
-  Space,
   Tag,
 } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import DocumentAttachmentButton from '#/modules/erp/components/document-attachment-button.vue';
 import DocumentListFilters from '#/modules/erp/components/document-list-filters.vue';
+import DocumentTableActions from '#/modules/erp/components/document-table-actions.vue';
 import ErpRemoteSelect from '#/modules/erp/components/erp-remote-select.vue';
 import ExportCsvButton from '#/modules/erp/components/export-csv-button.vue';
 import ReverseDocumentDialog from '#/modules/erp/components/reverse-document-dialog.vue';
@@ -94,7 +92,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
         fixed: 'right',
         slots: { default: 'operation' },
         title: '操作',
-        width: 150,
+        width: 320,
       },
     ],
     height: 'auto',
@@ -255,9 +253,9 @@ async function remove(row: SaleOrderRecord) {
     <Drawer
       v-model:open="open"
       :confirm-loading="saving"
-      :title="editingOrder ? '编辑销售订单' : '新建销售订单'"
+      :title="editingOrder ? '编辑销售订单' : '新增销售订单'"
+      class="w-[min(1080px,calc(100vw-24px))]"
       placement="right"
-      width="min(960px, 100vw)"
     >
       <div class="mb-4">
         <div class="mb-1 text-sm font-medium">客户</div>
@@ -354,12 +352,12 @@ async function remove(row: SaleOrderRecord) {
         </table>
       </div>
       <Button class="mt-3" type="dashed" @click="addLine">新增明细行</Button>
-      <template #footer
-        ><Button @click="open = false">取消</Button
-        ><Button :loading="saving" type="primary" @click="submit"
-          >保存草稿</Button
-        ></template
-      >
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <Button @click="open = false">取消</Button>
+          <Button :loading="saving" type="primary" @click="submit">保存草稿</Button>
+        </div>
+      </template>
     </Drawer>
     <DocumentListFilters
       v-model="listQuery"
@@ -371,65 +369,20 @@ async function remove(row: SaleOrderRecord) {
       :product-loader="loadProducts"
       @query="gridApi.query()"
     />
-    <Grid table-title="销售订单">
+    <Grid table-title="销售订单列表">
       <template #toolbar-tools>
-        <ExportCsvButton
-          file-name="sale-orders.csv"
-          permission="erp:sale-order:export"
-          :query="exportQuery"
-          resource="sale-order"
-        />
-        <Button
-          v-access:code="'erp:sale-order:create'"
-          type="primary"
-          @click="openCreate"
-        >
-          <Plus class="size-5" />新增销售订单
-        </Button>
+        <div class="flex items-center gap-1">
+          <Button v-access:code="'erp:sale-order:create'" class="gap-1" type="primary" @click="openCreate"><Plus class="size-5" /><span>新增销售订单</span></Button>
+          <ExportCsvButton file-name="销售订单列表.csv" permission="erp:sale-order:export" :query="exportQuery" resource="sale-order" />
+        </div>
       </template>
       <template #status="{ row }">
-        <Tag :color="row.status === 'approved' ? 'green' : 'gold'">{{
-          row.status === 'approved' ? '已审核' : '草稿'
+        <Tag :color="row.status === 'approved' ? 'success' : 'default'">{{
+          row.status === 'approved' ? '已审批' : '草稿'
         }}</Tag>
       </template>
       <template #operation="{ row }">
-        <Space>
-          <DocumentAttachmentButton :document-id="row.id" document-type="sale_order" />
-          <template v-if="row.status === 'draft'">
-            <Button
-            v-access:code="'erp:sale-order:update'"
-            size="small"
-            type="link"
-            @click="openEdit(row)"
-            >编辑</Button>
-            <Popconfirm title="确认删除草稿销售订单？" @confirm="remove(row)">
-              <Button
-              v-access:code="'erp:sale-order:delete'"
-              danger
-              size="small"
-              type="link"
-              >删除</Button>
-            </Popconfirm>
-            <Popconfirm
-            title="审核后可用于销售出库。确定继续吗？"
-            @confirm="approve(row)"
-            >
-              <Button
-              v-access:code="'erp:sale-order:approve'"
-              size="small"
-              type="link"
-              >审核</Button>
-            </Popconfirm>
-          </template>
-          <template v-else>
-            <Button
-            v-access:code="'erp:sale-order:reverse'"
-            size="small"
-            type="link"
-            @click="openReverse(row)"
-            >反审核</Button>
-          </template>
-        </Space>
+        <DocumentTableActions approve-impact="审批后可用于销售出库，确认继续吗？" approve-permission="erp:sale-order:approve" delete-permission="erp:sale-order:delete" :document-id="row.id" :document-no="row.no" document-type="sale_order" reverse-permission="erp:sale-order:reverse" :status="row.status" update-permission="erp:sale-order:update" @approve="approve(row)" @delete="remove(row)" @edit="openEdit(row)" @reverse="openReverse(row)" />
       </template>
     </Grid>
   </Page>

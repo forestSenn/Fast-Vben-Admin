@@ -25,6 +25,16 @@ export type BodyFilesUploadFile = {
 };
 
 /**
+ * Body_items-import_items
+ */
+export type BodyItemsImportItems = {
+    /**
+     * File
+     */
+    file: Blob | File;
+};
+
+/**
  * Body_login-login_access_token
  */
 export type BodyLoginLoginAccessToken = {
@@ -1829,6 +1839,90 @@ export type HealthStatus = {
     degraded?: boolean;
     database: HealthDependencyStatus;
     redis: HealthDependencyStatus;
+};
+
+/**
+ * ItemCreate
+ */
+export type ItemCreate = {
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Description
+     */
+    description?: string | null;
+};
+
+/**
+ * ItemPublic
+ */
+export type ItemPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Owner Id
+     */
+    owner_id: string;
+    /**
+     * Tenant Id
+     */
+    tenant_id: string;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+    /**
+     * Updated At
+     */
+    updated_at?: string | null;
+};
+
+/**
+ * ItemUpdate
+ */
+export type ItemUpdate = {
+    /**
+     * Title
+     */
+    title?: string | null;
+    /**
+     * Description
+     */
+    description?: string | null;
+};
+
+/**
+ * ItemsPublic
+ */
+export type ItemsPublic = {
+    /**
+     * Items
+     */
+    items: Array<ItemPublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
 };
 
 /**

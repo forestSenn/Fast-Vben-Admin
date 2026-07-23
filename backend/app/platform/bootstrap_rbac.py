@@ -73,6 +73,7 @@ def ensure_default_tenant_plan_menus(
             and not (menu.permission_code or "").startswith("platform:")
         ):
             session.add(TenantPlanMenu(plan_id=plan.id, menu_id=menu.id))
+            existing_menu_ids.add(menu.id)
 
 
 def ensure_department(
@@ -315,6 +316,7 @@ def bind_role_menus(*, session: Session, role: Role, menus: list[Menu]) -> None:
     for menu in menus:
         if menu.id not in existing_menu_ids:
             session.add(RoleMenu(role_id=role.id, menu_id=menu.id))
+            existing_menu_ids.add(menu.id)
 
 
 def replace_role_menus(*, session: Session, role: Role, menus: list[Menu]) -> None:

@@ -12,11 +12,11 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { Plus } from '@vben/icons';
-import { Button, Checkbox, Drawer, Input, InputNumber, Popconfirm, Space, Tag } from 'ant-design-vue';
+import { Button, Checkbox, Drawer, Input, InputNumber, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import DocumentAttachmentButton from '#/modules/erp/components/document-attachment-button.vue';
 import DocumentListFilters from '#/modules/erp/components/document-list-filters.vue';
+import DocumentTableActions from '#/modules/erp/components/document-table-actions.vue';
 import ErpRemoteSelect from '#/modules/erp/components/erp-remote-select.vue';
 import ExportCsvButton from '#/modules/erp/components/export-csv-button.vue';
 import ReverseDocumentDialog from '#/modules/erp/components/reverse-document-dialog.vue';
@@ -106,7 +106,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
       { field: 'discount_amount', title: '优惠', width: 110 },
       { field: 'cash_amount', slots: { default: 'cashAmount' }, title: '现金金额', width: 120 },
       { field: 'status', slots: { default: 'status' }, title: '状态', width: 90 },
-      { align: 'center', field: 'operation', fixed: 'right', slots: { default: 'operation' }, title: '操作', width: 150 },
+      { align: 'center', field: 'operation', fixed: 'right', slots: { default: 'operation' }, title: '操作', width: 320 },
     ],
     height: 'auto',
     proxyConfig: {
@@ -323,7 +323,7 @@ async function remove(record: RecordType) {
 <template>
   <Page auto-content-height>
     <ReverseDocumentDialog v-model:open="reverseOpen" impact="反审核会释放已占用的来源单据余额，并将该单据恢复为草稿。" :on-confirm="confirmReverse" :title="`反审核${title}`" />
-    <Drawer v-model:open="drawerOpen" :confirm-loading="saving" :title="`${editingDocument ? '编辑' : '新建'}${title}`" placement="right" width="min(980px, 100vw)">
+    <Drawer v-model:open="drawerOpen" :confirm-loading="saving" :title="`${editingDocument ? '编辑' : '新增'}${title}`" class="w-[min(980px,calc(100vw-24px))]" placement="right">
       <div class="grid gap-4 md:grid-cols-3">
         <div>
           <div class="mb-1 text-sm font-medium">{{ counterpartyLabel }}</div>
@@ -365,9 +365,15 @@ async function remove(record: RecordType) {
         </div>
       </div>
       <div class="mt-4 overflow-x-auto rounded border border-[var(--vben-border-color)]"><table class="min-w-[680px] w-full text-left text-sm"><thead><tr><th class="p-2">来源单据</th><th class="p-2">类型</th><th class="p-2">剩余金额</th><th class="p-2">本次金额</th></tr></thead><tbody><tr v-for="line in lines" :key="line.key" class="border-t border-[var(--vben-border-color)]"><td class="p-2">{{ sourceForLine(line)?.label }}</td><td class="p-2">{{ sourceForLine(line)?.type.includes('return') ? '退货信用' : '正向单据' }}</td><td class="p-2">{{ sourceForLine(line)?.remaining }}</td><td class="p-2"><InputNumber v-model:value="line.amount" :max="sourceForLine(line)?.remaining" :min="'0.0001'" :precision="4" string-mode /></td></tr></tbody></table></div>
-      <template #footer><Button @click="drawerOpen = false">取消</Button><Button :loading="saving" type="primary" @click="submit">{{ editingDocument ? '保存修改' : '保存草稿' }}</Button></template>
+      <template #footer><div class="flex justify-end gap-2"><Button @click="drawerOpen = false">取消</Button><Button :loading="saving" type="primary" @click="submit">{{ editingDocument ? '保存修改' : '保存草稿' }}</Button></div></template>
     </Drawer>
     <DocumentListFilters v-model="listQuery" :counterparties="counterparties" :counterparty-loader="loadCounterparties" :counterparty-key="isPayment ? 'supplier_id' : 'customer_id'" :counterparty-label="counterpartyLabel" @query="gridApi.query()" />
-    <Grid :table-title="title"><template #toolbar-tools><ExportCsvButton :file-name="isPayment ? 'finance-payments.csv' : 'finance-receipts.csv'" :permission="`${permissionPrefix}:export`" :query="exportQuery" :resource="isPayment ? 'finance-payment' : 'finance-receipt'" /><Button v-access:code="`${permissionPrefix}:create`" type="primary" @click="openCreate"><Plus class="size-5" />新建{{ title }}</Button></template><template #counterparty="{ row }">{{ counterpartyName(row) }}</template><template #cashAmount="{ row }">{{ cashAmount(row) }}</template><template #status="{ row }"><Tag :color="row.status === 'approved' ? 'green' : 'gold'">{{ row.status === 'approved' ? '已审核' : '草稿' }}</Tag></template><template #operation="{ row }"><Space><DocumentAttachmentButton :document-id="row.id" :document-type="isPayment ? 'finance_payment' : 'finance_receipt'" /><Button v-if="row.status === 'draft'" v-access:code="`${permissionPrefix}:update`" size="small" type="link" @click="openEdit(row)">编辑</Button><Popconfirm v-if="row.status === 'draft'" title="确认删除该草稿单据？" @confirm="remove(row)"><Button v-access:code="`${permissionPrefix}:delete`" danger size="small" type="link">删除</Button></Popconfirm><Popconfirm v-if="row.status === 'draft'" title="审核后将占用来源单据余额。确定继续吗？" @confirm="approve(row)"><Button v-access:code="`${permissionPrefix}:approve`" size="small" type="link">审核</Button></Popconfirm><Button v-else v-access:code="`${permissionPrefix}:reverse`" size="small" type="link" @click="openReverse(row)">反审核</Button></Space></template></Grid>
+    <Grid :table-title="`${title}列表`">
+      <template #toolbar-tools><div class="flex items-center gap-1"><Button v-access:code="`${permissionPrefix}:create`" class="gap-1" type="primary" @click="openCreate"><Plus class="size-5" /><span>新增{{ title }}</span></Button><ExportCsvButton :file-name="`${title}列表.csv`" :permission="`${permissionPrefix}:export`" :query="exportQuery" :resource="isPayment ? 'finance-payment' : 'finance-receipt'" /></div></template>
+      <template #counterparty="{ row }">{{ counterpartyName(row) }}</template>
+      <template #cashAmount="{ row }">{{ cashAmount(row) }}</template>
+      <template #status="{ row }"><Tag :color="row.status === 'approved' ? 'success' : 'default'">{{ row.status === 'approved' ? '已审批' : '草稿' }}</Tag></template>
+      <template #operation="{ row }"><DocumentTableActions approve-impact="审批后将占用来源单据余额，确认继续吗？" :approve-permission="`${permissionPrefix}:approve`" :delete-permission="`${permissionPrefix}:delete`" :document-id="row.id" :document-no="row.no" :document-type="isPayment ? 'finance_payment' : 'finance_receipt'" :reverse-permission="`${permissionPrefix}:reverse`" :status="row.status" :update-permission="`${permissionPrefix}:update`" @approve="approve(row)" @delete="remove(row)" @edit="openEdit(row)" @reverse="openReverse(row)" /></template>
+    </Grid>
   </Page>
 </template>

@@ -31,16 +31,17 @@ def test_base_edition_contains_only_platform_routes() -> None:
     assert "/api/v1/items" not in paths
 
 
-def test_suite_edition_includes_items_module() -> None:
+def test_suite_edition_includes_all_delivered_business_modules() -> None:
     manifest = build_manifest(edition="suite")
     paths = schema_paths_for("suite")
 
-    assert [module.code for module in manifest.modules] == ["platform", "items"]
+    assert [module.code for module in manifest.modules] == ["platform", "items", "erp"]
     assert manifest.schema_version == 2
     assert len(manifest.source_revision) == 40
     assert manifest.modules[0].migration_heads
     assert manifest.modules[0].openapi_sha256.startswith("sha256:")
     assert "/api/v1/items" in paths
+    assert "/api/v1/erp/products" in paths
     assert manifest.manifest_digest == manifest_digest(manifest.canonical_payload())
 
     assert build_manifest(edition="suite") == manifest

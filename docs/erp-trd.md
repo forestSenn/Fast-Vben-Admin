@@ -54,7 +54,7 @@
 | 采购退货来源 | 关联采购订单行，最大可退量按已审核入库量计算 | 后续可增加直接关联入库行 |
 | 历史业务日期 | 允许历史日期，不允许晚于租户当前自然日 | 结账期能力另行设计 |
 | 导出格式 | CSV UTF-8 BOM | Excel 需确认并评估依赖 |
-| Edition | 新增独立 `erp`；是否加入 `suite` 由产品门禁决定 | Edition YAML 是唯一事实源 |
+| Edition | 独立 `erp` 组合，并由 `suite` 同时装配 Items 与 ERP | Edition YAML 是唯一事实源 |
 | 主数据导入 | Phase C P1，业务单据不导入 | 不阻塞 P0 闭环 |
 | 现金退款 | v1.0 只支持退货信用额净额冲减 | 独立退款单另行设计 |
 
@@ -225,7 +225,7 @@ definition = ModuleDefinition(
 
 - 新增 `editions/erp.yaml`，内容为 `platform`、`erp`。
 - `base` 与 `items` 保持不包含 ERP。
-- 只有产品确认后才修改 `editions/suite.yaml` 加入 ERP。
+- `editions/suite.yaml` 同时包含 Platform、Items 与 ERP。
 - `pnpm build:edition -- --edition erp` 必须生成只包含 Platform 与 ERP 的 Manifest 和前端入口。
 - Base/Items 的 OpenAPI、Router、前端 dist、Worker、Schedule 和迁移不得包含 ERP。
 

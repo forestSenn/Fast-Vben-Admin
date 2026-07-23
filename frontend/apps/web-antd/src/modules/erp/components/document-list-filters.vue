@@ -1,18 +1,17 @@
 <script lang="ts" setup>
+import type { UserRecord } from '#/api';
+import type { VbenFormSchema } from '#/adapter/form';
 import type {
   CounterpartyRecord,
   DocumentQuery,
   ProductRecord,
   WarehouseRecord,
 } from '#/modules/erp/api/erp';
-import type { UserRecord } from '#/api';
 
-import { computed, ref } from 'vue';
+import { onMounted, watch } from 'vue';
 
-import { Input, Select } from 'ant-design-vue';
-
+import { useVbenForm } from '#/adapter/form';
 import { listUsersApi } from '#/api';
-import ErpRemoteSelect from '#/modules/erp/components/erp-remote-select.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -35,194 +34,256 @@ const emit = defineEmits<{
   'update:modelValue': [value: DocumentQuery];
 }>();
 
-const owners = ref<UserRecord[]>([]);
+async function getCounterpartyOptions() {
+  return props.counterpartyLoader
+    ? await props.counterpartyLoader('')
+    : props.counterparties;
+}
 
-async function loadOwners(keyword: string) {
+async function getOwnerOptions(): Promise<UserRecord[]> {
   try {
-    const result = await listUsersApi({ is_active: true, keyword, page: 1, page_size: 50 });
-    owners.value = result.items;
-    return owners.value;
+    const result = await listUsersApi({
+      is_active: true,
+      page: 1,
+      page_size: 200,
+    });
+    return result.items;
   } catch {
-    // Owner filtering remains available to roles that may read the user directory.
+    // Some document roles may not have access to the user directory.
     return [];
   }
 }
 
-function formatOwner(owner: UserRecord) {
-  return { label: owner.full_name || owner.email, value: owner.id };
+async function getProductOptions() {
+  return props.productLoader ? await props.productLoader('') : props.products;
 }
 
-function formatCounterparty(counterparty: CounterpartyRecord) {
-  return { label: counterparty.name, value: counterparty.id };
+async function getWarehouseOptions() {
+  return props.warehouseLoader
+    ? await props.warehouseLoader('')
+    : props.warehouses;
 }
 
-function formatProduct(product: ProductRecord) {
-  return { label: `${product.code} - ${product.name}`, value: product.id };
+function normalizeDate(value: unknown) {
+  if (!value) return undefined;
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? String(value) : date.toISOString();
 }
 
-function formatWarehouse(warehouse: WarehouseRecord) {
-  return { label: `${warehouse.code} - ${warehouse.name}`, value: warehouse.id };
+function buildSchema(): VbenFormSchema[] {
+  const schema: VbenFormSchema[] = [
+    {
+      component: 'Input',
+      componentProps: {
+        allowClear: true,
+        placeholder: '请输入单据编号',
+      },
+      fieldName: 'keyword',
+      label: '单据编号',
+    },
+  ];
+
+  if (props.productLoader || props.products.length > 0) {
+    schema.push({
+      component: 'ApiSelect',
+      componentProps: {
+        allowClear: true,
+        api: getProductOptions,
+        class: 'w-full',
+        labelFn: (item: ProductRecord) => `${item.code} - ${item.name}`,
+        placeholder: '请选择产品名称',
+        showSearch: true,
+        valueField: 'id',
+      },
+      fieldName: 'product_id',
+      label: '产品名称',
+    });
+  }
+
+  schema.push({
+    component: 'RangePicker',
+    componentProps: {
+      allowClear: true,
+      class: 'w-full',
+      format: 'YYYY-MM-DD HH:mm:ss',
+      placeholder: ['开始时间', '结束时间'],
+      showTime: true,
+      valueFormat: 'YYYY-MM-DDTHH:mm:ss',
+    },
+    fieldName: 'business_range',
+    label: '业务时间',
+  });
+
+  if (props.counterpartyKey) {
+    schema.push({
+      component: 'ApiSelect',
+      componentProps: {
+        allowClear: true,
+        api: getCounterpartyOptions,
+        class: 'w-full',
+        labelField: 'name',
+        placeholder: `请选择${props.counterpartyLabel || '往来单位'}`,
+        showSearch: true,
+        valueField: 'id',
+      },
+      fieldName: props.counterpartyKey,
+      label: props.counterpartyLabel || '往来单位',
+    });
+  }
+
+  schema.push(
+    {
+      component: 'ApiSelect',
+      componentProps: {
+        allowClear: true,
+        api: getOwnerOptions,
+        class: 'w-full',
+        labelFn: (item: UserRecord) => item.full_name || item.email,
+        placeholder: '请选择制单人',
+        showSearch: true,
+        valueField: 'id',
+      },
+      fieldName: 'owner_id',
+      label: '制单人',
+    },
+    {
+      component: 'Select',
+      componentProps: {
+        allowClear: true,
+        options: [
+          { label: '草稿', value: 'draft' },
+          { label: '已审核', value: 'approved' },
+        ],
+        placeholder: '请选择审批状态',
+      },
+      fieldName: 'status',
+      label: '审批状态',
+    },
+    {
+      component: 'Input',
+      componentProps: { allowClear: true, placeholder: '请输入备注' },
+      fieldName: 'remark',
+      label: '备注',
+    },
+  );
+
+  if (props.warehouseLoader || props.warehouses.length > 0) {
+    schema.push({
+      component: 'ApiSelect',
+      componentProps: {
+        allowClear: true,
+        api: getWarehouseOptions,
+        class: 'w-full',
+        labelFn: (item: WarehouseRecord) => `${item.code} - ${item.name}`,
+        placeholder: '请选择仓库',
+        showSearch: true,
+        valueField: 'id',
+      },
+      fieldName: 'warehouse_id',
+      label: '仓库',
+    });
+  }
+
+  if (props.showFulfillmentStatus) {
+    schema.push(
+      {
+        component: 'Select',
+        componentProps: {
+          allowClear: true,
+          options: [
+            { label: '未入库', value: 'none' },
+            { label: '部分入库', value: 'partial' },
+            { label: '全部入库', value: 'completed' },
+          ],
+          placeholder: '请选择入库状态',
+        },
+        fieldName: 'receipt_status',
+        label: '入库状态',
+      },
+      {
+        component: 'Select',
+        componentProps: {
+          allowClear: true,
+          options: [
+            { label: '未退货', value: 'none' },
+            { label: '部分退货', value: 'partial' },
+            { label: '全部退货', value: 'completed' },
+          ],
+          placeholder: '请选择退货状态',
+        },
+        fieldName: 'return_status',
+        label: '退货状态',
+      },
+    );
+  }
+
+  return schema;
 }
 
-const filters = computed({
-  get: () => props.modelValue,
-  set: (value: DocumentQuery) => emit('update:modelValue', value),
-});
-
-function update(key: keyof DocumentQuery, value: unknown) {
-  filters.value = {
-    ...filters.value,
-    [key]: typeof value === 'string' && value ? value : undefined,
+function toFormValues(query: DocumentQuery) {
+  const { business_from: businessFrom, business_to: businessTo, ...values } =
+    query;
+  return {
+    ...values,
+    business_range:
+      businessFrom && businessTo ? [businessFrom, businessTo] : undefined,
   };
+}
+
+function toQuery(values: Record<string, unknown>): DocumentQuery {
+  const { business_range: businessRange, ...query } = values;
+  const range = Array.isArray(businessRange) ? businessRange : [];
+  return {
+    ...(query as DocumentQuery),
+    business_from: normalizeDate(range[0]),
+    business_to: normalizeDate(range[1]),
+  };
+}
+
+async function handleReset() {
+  await formApi.resetForm();
+  emit('update:modelValue', {});
   emit('query');
 }
 
-function updateDate(key: 'business_from' | 'business_to', value: string) {
-  update(key, value ? new Date(value).toISOString() : undefined);
+function handleSubmit(values: Record<string, unknown>) {
+  emit('update:modelValue', toQuery(values));
+  emit('query');
 }
 
-function dateInputValue(value: string | undefined) {
-  return value ? value.slice(0, 16) : undefined;
-}
+const [Form, formApi] = useVbenForm({
+  collapsed: true,
+  compact: true,
+  commonConfig: {
+    componentProps: {
+      class: 'w-full',
+    },
+  },
+  handleReset,
+  handleSubmit,
+  schema: buildSchema(),
+  showCollapseButton: true,
+  submitButtonOptions: {
+    content: '搜索',
+  },
+  wrapperClass: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3',
+});
+
+onMounted(() => {
+  void formApi.setValues(toFormValues(props.modelValue));
+});
+
+watch(
+  () => props.modelValue,
+  (value) => {
+    void formApi.setValues(toFormValues(value));
+  },
+  { deep: true },
+);
 </script>
 
 <template>
-  <div class="mb-4 flex flex-wrap items-center gap-2">
-    <Input
-      :value="filters.keyword"
-      allow-clear
-      class="w-48"
-      placeholder="单号、商品或备注"
-      @press-enter="emit('query')"
-      @update:value="update('keyword', $event)"
-    />
-    <ErpRemoteSelect
-      v-if="counterpartyKey && counterpartyLoader"
-      :value="filters[counterpartyKey]"
-      allow-clear
-      class="w-44"
-      :format-option="formatCounterparty"
-      :load="counterpartyLoader"
-      :placeholder="counterpartyLabel"
-      @update:value="update(counterpartyKey, $event)"
-    />
-    <Select
-      v-else-if="counterpartyKey"
-      :value="filters[counterpartyKey]"
-      allow-clear
-      class="w-44"
-      :options="counterparties.map((item) => ({ label: item.name, value: item.id }))"
-      :placeholder="counterpartyLabel"
-      show-search
-      @update:value="update(counterpartyKey, $event)"
-    />
-    <ErpRemoteSelect
-      v-if="productLoader"
-      :value="filters.product_id"
-      allow-clear
-      class="w-52"
-      :format-option="formatProduct"
-      :load="productLoader"
-      placeholder="商品"
-      @update:value="update('product_id', $event)"
-    />
-    <Select
-      v-else-if="products.length"
-      :value="filters.product_id"
-      allow-clear
-      class="w-52"
-      :options="products.map((item) => ({ label: `${item.code} - ${item.name}`, value: item.id }))"
-      placeholder="商品"
-      show-search
-      @update:value="update('product_id', $event)"
-    />
-    <ErpRemoteSelect
-      v-if="warehouseLoader"
-      :value="filters.warehouse_id"
-      allow-clear
-      class="w-48"
-      :format-option="formatWarehouse"
-      :load="warehouseLoader"
-      placeholder="仓库"
-      @update:value="update('warehouse_id', $event)"
-    />
-    <Select
-      v-else-if="warehouses.length"
-      :value="filters.warehouse_id"
-      allow-clear
-      class="w-48"
-      :options="warehouses.map((item) => ({ label: `${item.code} - ${item.name}`, value: item.id }))"
-      placeholder="仓库"
-      show-search
-      @update:value="update('warehouse_id', $event)"
-    />
-    <Select
-      :value="filters.status"
-      allow-clear
-      class="w-28"
-      :options="[
-        { label: '草稿', value: 'draft' },
-        { label: '已审核', value: 'approved' },
-      ]"
-      placeholder="状态"
-      @update:value="update('status', $event)"
-    />
-    <template v-if="showFulfillmentStatus">
-      <Select
-        :value="filters.receipt_status"
-        allow-clear
-        class="w-32"
-        :options="[
-          { label: '未入库', value: 'none' },
-          { label: '部分入库', value: 'partial' },
-          { label: '全部入库', value: 'completed' },
-        ]"
-        placeholder="入库状态"
-        @update:value="update('receipt_status', $event)"
-      />
-      <Select
-        :value="filters.return_status"
-        allow-clear
-        class="w-32"
-        :options="[
-          { label: '未退货', value: 'none' },
-          { label: '部分退货', value: 'partial' },
-          { label: '全部退货', value: 'completed' },
-        ]"
-        placeholder="退货状态"
-        @update:value="update('return_status', $event)"
-      />
-    </template>
-    <Input
-      :value="filters.remark"
-      allow-clear
-      class="w-40"
-      placeholder="备注"
-      @press-enter="emit('query')"
-      @update:value="update('remark', $event)"
-    />
-    <ErpRemoteSelect
-      :value="filters.owner_id"
-      allow-clear
-      class="w-44"
-      :format-option="formatOwner"
-      :load="loadOwners"
-      placeholder="制单人"
-      @update:value="update('owner_id', $event)"
-    />
-    <input
-      :value="dateInputValue(filters.business_from)"
-      aria-label="业务开始时间"
-      class="h-8 w-44 rounded border border-[var(--vben-border-color)] bg-transparent px-2 text-sm"
-      type="datetime-local"
-      @change="updateDate('business_from', ($event.target as HTMLInputElement).value)"
-    />
-    <input
-      :value="dateInputValue(filters.business_to)"
-      aria-label="业务结束时间"
-      class="h-8 w-44 rounded border border-[var(--vben-border-color)] bg-transparent px-2 text-sm"
-      type="datetime-local"
-      @change="updateDate('business_to', ($event.target as HTMLInputElement).value)"
-    />
+  <div class="mb-3 rounded-sm bg-card px-2 pt-3">
+    <Form />
   </div>
 </template>

@@ -29,7 +29,11 @@ def test_build_manifest(client: TestClient) -> None:
     assert response.status_code == 200
     content = response.json()
     assert content["edition"] == "suite"
-    assert [module["code"] for module in content["modules"]] == ["platform", "items"]
+    assert [module["code"] for module in content["modules"]] == [
+        "platform",
+        "items",
+        "erp",
+    ]
     assert content["manifest_digest"].startswith("sha256:")
 
 

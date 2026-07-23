@@ -13,7 +13,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
-import { Check, IconifyIcon, Plus, Undo2 } from '@vben/icons';
+import { Plus } from '@vben/icons';
 
 import {
   Button,
@@ -21,17 +21,15 @@ import {
   Form,
   Input,
   InputNumber,
-  Popconfirm,
   Segmented,
-  Space,
   Tag,
 } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import DocumentListFilters from '#/modules/erp/components/document-list-filters.vue';
+import DocumentTableActions from '#/modules/erp/components/document-table-actions.vue';
 import ErpRemoteSelect from '#/modules/erp/components/erp-remote-select.vue';
 import ExportCsvButton from '#/modules/erp/components/export-csv-button.vue';
-import DocumentAttachments from '#/modules/erp/components/document-attachments.vue';
 import ReverseDocumentDialog from '#/modules/erp/components/reverse-document-dialog.vue';
 import {
   approveStockDocumentApi,
@@ -87,8 +85,6 @@ const warehouses = ref<WarehouseRecord[]>([]);
 const counterparties = ref<CounterpartyRecord[]>([]);
 const documentForm = reactive<DocumentFormValues>({ remark: undefined });
 const lines = ref<DocumentLine[]>([]);
-const attachmentDocument = ref<StockDocumentRecord>();
-const attachmentOpen = ref(false);
 const editingDocument = ref<StockDocumentRecord>();
 const listQuery = ref<DocumentQuery>({});
 const exportQuery = computed(() =>
@@ -114,7 +110,7 @@ const permissionPrefix: Record<DocumentKind, string> = {
   out: 'erp:stock-out',
 };
 
-const drawerTitle = computed(() => `${editingDocument.value ? '编辑' : '新建'}${kindLabels[kind.value]}`);
+const drawerTitle = computed(() => `${editingDocument.value ? '编辑' : '新增'}${kindLabels[kind.value]}`);
 const lineQuantityLabel = computed(() =>
   kind.value === 'check' ? '实盘数量' : '数量',
 );
@@ -140,7 +136,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
         fixed: 'right',
         slots: { default: 'operation' },
         title: '操作',
-        width: 168,
+        width: 320,
       },
     ],
     height: 'auto',
@@ -342,19 +338,10 @@ watch(
   },
 );
 
-function openAttachments(row: StockDocumentRecord) {
-  attachmentDocument.value = row;
-  attachmentOpen.value = true;
-}
 </script>
 
 <template>
   <Page auto-content-height>
-    <DocumentAttachments
-      v-model:open="attachmentOpen"
-      :document-id="attachmentDocument?.id"
-      :document-type="`stock_${kind}`"
-    />
     <ReverseDocumentDialog
       v-model:open="reverseOpen"
       impact="反审核会生成冲销库存流水，并恢复该单据为草稿。"
@@ -365,8 +352,8 @@ function openAttachments(row: StockDocumentRecord) {
       v-model:open="drawerOpen"
       :confirm-loading="saving"
       :title="drawerTitle"
+      class="w-[min(1080px,calc(100vw-24px))]"
       placement="right"
-      width="min(960px, 100vw)"
       @close="() => { resetDocument(); editingDocument = undefined; }"
     >
       <Form ref="formRef" :model="documentForm" layout="vertical">
@@ -441,8 +428,10 @@ function openAttachments(row: StockDocumentRecord) {
         </Form.Item>
       </Form>
       <template #footer>
-        <Button @click="drawerOpen = false">取消</Button>
-        <Button :loading="saving" type="primary" @click="submit">{{ editingDocument ? '保存修改' : '保存草稿' }}</Button>
+        <div class="flex justify-end gap-2">
+          <Button @click="drawerOpen = false">取消</Button>
+          <Button :loading="saving" type="primary" @click="submit">{{ editingDocument ? '保存修改' : '保存草稿' }}</Button>
+        </div>
       </template>
     </Drawer>
 
@@ -473,49 +462,35 @@ function openAttachments(row: StockDocumentRecord) {
     />
     <Grid :table-title="kindLabels[kind]">
       <template #toolbar-tools>
-        <ExportCsvButton :file-name="`stock-${kind}s.csv`" :permission="`${permissionPrefix[kind]}:export`" :query="exportQuery" :resource="kind === 'in' ? 'stock-in' : kind === 'out' ? 'stock-out' : kind === 'move' ? 'stock-move' : 'stock-check'" />
-        <Button v-access:code="`${permissionPrefix[kind]}:create`" type="primary" @click="openCreate">
-          <Plus class="size-5" />
-          新建{{ kindLabels[kind] }}
-        </Button>
+        <div class="flex items-center gap-1">
+          <Button v-access:code="`${permissionPrefix[kind]}:create`" class="gap-1" type="primary" @click="openCreate">
+            <Plus class="size-5" />
+            <span>新增{{ kindLabels[kind] }}</span>
+          </Button>
+          <ExportCsvButton :file-name="`${kindLabels[kind]}列表.csv`" :permission="`${permissionPrefix[kind]}:export`" :query="exportQuery" :resource="kind === 'in' ? 'stock-in' : kind === 'out' ? 'stock-out' : kind === 'move' ? 'stock-move' : 'stock-check'" />
+        </div>
       </template>
       <template #status="{ row }">
-        <Tag :color="row.status === 'approved' ? 'green' : 'gold'">
-          {{ row.status === 'approved' ? '已审核' : '草稿' }}
+        <Tag :color="row.status === 'approved' ? 'success' : 'default'">
+          {{ row.status === 'approved' ? '已审批' : '草稿' }}
         </Tag>
       </template>
       <template #operation="{ row }">
-        <Space size="small">
-          <Button v-access:code="'erp:attachment:list'" size="small" type="link" @click="openAttachments(row)">
-            <IconifyIcon class="size-4" icon="lucide:paperclip" />附件
-          </Button>
-          <Popconfirm
-            v-if="row.status === 'draft'"
-            title="审核将立即记账，并更新库存余额。确定继续吗？"
-            @confirm="approve(row)"
-          >
-            <Button v-access:code="`${permissionPrefix[kind]}:approve`" size="small" type="link">
-              <Check class="size-4" />
-              审核
-            </Button>
-          </Popconfirm>
-          <Button v-if="row.status === 'draft'" v-access:code="`${permissionPrefix[kind]}:update`" size="small" type="link" @click="openEdit(row)">
-            编辑
-          </Button>
-          <Popconfirm v-if="row.status === 'draft'" title="确认删除该草稿单据？" @confirm="remove(row)">
-            <Button v-access:code="`${permissionPrefix[kind]}:delete`" danger size="small" type="link">删除</Button>
-          </Popconfirm>
-          <Button
-            v-else
-            v-access:code="`${permissionPrefix[kind]}:reverse`"
-            size="small"
-            type="link"
-            @click="openReverse(row)"
-          >
-              <Undo2 class="size-4" />
-              反审核
-          </Button>
-        </Space>
+        <DocumentTableActions
+          approve-impact="审批将立即记账并更新库存余额，确认继续吗？"
+          :approve-permission="`${permissionPrefix[kind]}:approve`"
+          :delete-permission="`${permissionPrefix[kind]}:delete`"
+          :document-id="row.id"
+          :document-no="row.no"
+          :document-type="`stock_${kind}`"
+          :reverse-permission="`${permissionPrefix[kind]}:reverse`"
+          :status="row.status"
+          :update-permission="`${permissionPrefix[kind]}:update`"
+          @approve="approve(row)"
+          @delete="remove(row)"
+          @edit="openEdit(row)"
+          @reverse="openReverse(row)"
+        />
       </template>
     </Grid>
   </Page>

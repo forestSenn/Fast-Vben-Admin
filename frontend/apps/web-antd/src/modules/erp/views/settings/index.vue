@@ -20,13 +20,12 @@ import {
   Form,
   Input,
   InputNumber,
-  Popconfirm,
   Segmented,
   Switch,
   Tag,
 } from 'ant-design-vue';
 
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { useVbenVxeGrid, VbenTableAction } from '#/adapter/vxe-table';
 import ExportCsvButton from '#/modules/erp/components/export-csv-button.vue';
 import ErpRemoteSelect from '#/modules/erp/components/erp-remote-select.vue';
 import {
@@ -151,7 +150,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
         fixed: 'right',
         slots: { default: 'operation' },
         title: '操作',
-        width: 126,
+        width: 260,
       },
     ],
     height: 'auto',
@@ -327,9 +326,9 @@ watch(
     <Drawer
       v-model:open="grantOpen"
       :confirm-loading="grantSaving"
+      class="w-[min(620px,calc(100vw-24px))]"
       title="仓库授权用户"
       placement="right"
-      width="min(520px, 100vw)"
     >
       <ErpRemoteSelect
         v-model:value="grantedUserIds"
@@ -339,26 +338,23 @@ watch(
         mode="multiple"
         placeholder="选择可访问该仓库的启用用户"
       />
-      <template #footer
-        ><Button @click="grantOpen = false">取消</Button
-        ><Button
-          :loading="grantSaving"
-          type="primary"
-          @click="saveWarehouseUsers"
-          >保存授权</Button
-        ></template
-      >
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <Button @click="grantOpen = false">取消</Button>
+          <Button :loading="grantSaving" type="primary" @click="saveWarehouseUsers">保存授权</Button>
+        </div>
+      </template>
     </Drawer>
     <Drawer
       v-model:open="drawerOpen"
       :confirm-loading="saving"
       :title="drawerTitle"
+      class="w-[min(720px,calc(100vw-24px))]"
       placement="right"
-      width="560"
       @close="resetForm"
     >
-      <Form ref="formRef" :model="form" layout="vertical">
-        <div class="grid grid-cols-2 gap-x-4">
+      <Form ref="formRef" class="mx-3" :model="form" layout="vertical">
+        <div class="grid grid-cols-1 gap-x-4 md:grid-cols-2">
           <Form.Item
             label="编码"
             name="code"
@@ -452,8 +448,10 @@ watch(
         </Form.Item>
       </Form>
       <template #footer>
-        <Button @click="drawerOpen = false">取消</Button>
-        <Button :loading="saving" type="primary" @click="submit">保存</Button>
+        <div class="flex justify-end gap-2">
+          <Button @click="drawerOpen = false">取消</Button>
+          <Button :loading="saving" type="primary" @click="submit">保存</Button>
+        </div>
       </template>
     </Drawer>
 
@@ -479,63 +477,43 @@ watch(
     </div>
     <Grid :table-title="labels[kind]">
       <template #toolbar-tools>
-        <ExportCsvButton
-          :file-name="`${kind}s.csv`"
-          :permission="`${permissionPrefix[kind]}:export`"
-          :query="exportQuery"
-          :resource="
-            kind === 'unit'
-              ? 'product-unit'
-              : kind === 'category'
-                ? 'product-category'
-                : 'warehouse'
-          "
-        />
-        <Button
-          v-access:code="`${permissionPrefix[kind]}:create`"
-          type="primary"
-          @click="openCreate"
-        >
-          <Plus class="size-5" />
-          新增{{ labels[kind] }}
-        </Button>
+        <div class="flex items-center gap-1">
+          <Button
+            v-access:code="`${permissionPrefix[kind]}:create`"
+            class="gap-1"
+            type="primary"
+            @click="openCreate"
+          >
+            <Plus class="size-5" />
+            <span>新增{{ labels[kind] }}</span>
+          </Button>
+          <ExportCsvButton
+            :file-name="`${labels[kind]}列表.csv`"
+            :permission="`${permissionPrefix[kind]}:export`"
+            :query="exportQuery"
+            :resource="
+              kind === 'unit'
+                ? 'product-unit'
+                : kind === 'category'
+                  ? 'product-category'
+                  : 'warehouse'
+            "
+          />
+        </div>
       </template>
       <template #status="{ row }">
-        <Tag :color="row.is_active ? 'green' : 'default'">
+        <Tag :color="row.is_active ? 'success' : 'default'">
           {{ row.is_active ? '启用' : '停用' }}
         </Tag>
       </template>
       <template #operation="{ row }">
-        <Button
-          v-if="kind === 'warehouse'"
-          v-access:code="'erp:warehouse:assign'"
-          size="small"
-          type="link"
-          @click="openWarehouseUsers(row)"
-        >
-          授权用户
-        </Button>
-        <Button
-          v-access:code="`${permissionPrefix[kind]}:update`"
-          size="small"
-          type="link"
-          @click="openEdit(row)"
-        >
-          编辑
-        </Button>
-        <Popconfirm
-          title="删除后无法恢复。确定继续吗？"
-          @confirm="removeRecord(row)"
-        >
-          <Button
-            v-access:code="`${permissionPrefix[kind]}:delete`"
-            danger
-            size="small"
-            type="link"
-          >
-            删除
-          </Button>
-        </Popconfirm>
+        <VbenTableAction
+          :actions="[
+            { auth: ['erp:warehouse:assign'], icon: 'lucide:users', ifShow: () => kind === 'warehouse', onClick: openWarehouseUsers.bind(null, row), text: '授权用户', variant: 'link' },
+            { auth: [`${permissionPrefix[kind]}:update`], icon: 'lucide:square-pen', onClick: openEdit.bind(null, row), text: '编辑', variant: 'link' },
+            { auth: [`${permissionPrefix[kind]}:delete`], danger: true, icon: 'lucide:trash-2', popConfirm: { cancelText: '取消', confirm: removeRecord.bind(null, row), okText: '确认', title: `确认删除${labels[kind]} ${row.name} 吗？` }, text: '删除', variant: 'link' },
+          ]"
+        />
       </template>
     </Grid>
   </Page>

@@ -14,11 +14,11 @@ import { computed, onMounted, ref } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { Plus } from '@vben/icons';
-import { Button, Drawer, Input, InputNumber, Popconfirm, Select, Space, Tag } from 'ant-design-vue';
+import { Button, Drawer, Input, InputNumber, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import DocumentAttachmentButton from '#/modules/erp/components/document-attachment-button.vue';
 import DocumentListFilters from '#/modules/erp/components/document-list-filters.vue';
+import DocumentTableActions from '#/modules/erp/components/document-table-actions.vue';
 import ExportCsvButton from '#/modules/erp/components/export-csv-button.vue';
 import ReverseDocumentDialog from '#/modules/erp/components/reverse-document-dialog.vue';
 import {
@@ -85,7 +85,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
       { field: 'total_quantity', title: '出库数量', width: 110 },
       { field: 'status', slots: { default: 'status' }, title: '状态', width: 90 },
       { field: 'version', title: '版本', width: 70 },
-      { align: 'center', field: 'operation', fixed: 'right', slots: { default: 'operation' }, title: '操作', width: 150 },
+      { align: 'center', field: 'operation', fixed: 'right', slots: { default: 'operation' }, title: '操作', width: 320 },
     ],
     height: 'auto',
     proxyConfig: { ajax: { query: async ({ page }) => await listSaleOutsApi({ ...listQuery.value, page: page.currentPage, page_size: page.pageSize }) } },
@@ -226,7 +226,7 @@ async function confirmReverse(reason: string) {
 <template>
   <Page auto-content-height>
     <ReverseDocumentDialog v-model:open="reverseOpen" impact="反审核会恢复本次出库库存；已有销售退货时将被后端阻止。" :on-confirm="confirmReverse" title="反审核销售出库" />
-    <Drawer v-model:open="drawerOpen" :confirm-loading="saving" :title="editingShipment ? '编辑销售出库' : '新建销售出库'" placement="right" width="min(1040px, 100vw)">
+    <Drawer v-model:open="drawerOpen" :confirm-loading="saving" :title="editingShipment ? '编辑销售出库' : '新增销售出库'" class="w-[min(1040px,calc(100vw-24px))]" placement="right">
       <div class="mb-4">
         <div class="mb-1 text-sm font-medium">来源销售订单</div>
         <ErpRemoteSelect v-model:value="selectedOrderId" class="w-full" :format-option="formatOrder" :load="loadSaleOrders" placeholder="选择已审核且有剩余数量的销售订单" @change="selectOrder" />
@@ -240,13 +240,13 @@ async function confirmReverse(reason: string) {
           <tbody><tr v-for="line in shipmentLines" :key="line.sale_order_item_id" class="border-t border-[var(--vben-border-color)]"><td class="p-2">{{ selectedOrder?.items?.find((item) => item.id === line.sale_order_item_id)?.product_name }}</td><td class="p-2">{{ selectedOrder?.items?.find((item) => item.id === line.sale_order_item_id)?.quantity }}</td><td class="p-2">{{ remainingQuantity(selectedOrder?.items?.find((item) => item.id === line.sale_order_item_id)!) }}</td><td class="p-2"><InputNumber v-model:value="line.quantity" :max="remainingQuantity(selectedOrder?.items?.find((item) => item.id === line.sale_order_item_id)!)" :min="'0.000001'" :precision="6" string-mode /></td><td class="p-2"><ErpRemoteSelect v-model:value="line.warehouse_id" class="min-w-64" :format-option="formatWarehouse" :load="loadWarehouses" placeholder="选择仓库" /></td></tr></tbody>
         </table>
       </div>
-      <template #footer><Button @click="drawerOpen = false">取消</Button><Button :loading="saving" type="primary" @click="submit">{{ editingShipment ? '保存修改' : '保存草稿' }}</Button></template>
+      <template #footer><div class="flex justify-end gap-2"><Button @click="drawerOpen = false">取消</Button><Button :loading="saving" type="primary" @click="submit">{{ editingShipment ? '保存修改' : '保存草稿' }}</Button></div></template>
     </Drawer>
     <DocumentListFilters v-model="listQuery" :counterparties="customers" :counterparty-loader="loadCustomers" counterparty-key="customer_id" counterparty-label="客户" :products="products" :product-loader="loadProducts" @query="gridApi.query()" />
-    <Grid table-title="销售出库">
-      <template #toolbar-tools><ExportCsvButton file-name="sale-outs.csv" permission="erp:sale-out:export" :query="exportQuery" resource="sale-out" /><Button v-access:code="'erp:sale-out:create'" type="primary" @click="openCreate"><Plus class="size-5" />新建销售出库</Button></template>
-      <template #status="{ row }"><Tag :color="row.status === 'approved' ? 'green' : 'gold'">{{ row.status === 'approved' ? '已审核' : '草稿' }}</Tag></template>
-      <template #operation="{ row }"><Space><DocumentAttachmentButton :document-id="row.id" document-type="sale_out" /><Button v-if="row.status === 'draft'" v-access:code="'erp:sale-out:update'" size="small" type="link" @click="openEdit(row)">编辑</Button><Popconfirm v-if="row.status === 'draft'" title="确认删除该草稿销售出库单？" @confirm="remove(row)"><Button v-access:code="'erp:sale-out:delete'" danger size="small" type="link">删除</Button></Popconfirm><Popconfirm v-if="row.status === 'draft'" title="审核后将扣减库存并占用销售订单剩余数量。确定继续吗？" @confirm="approve(row)"><Button v-access:code="'erp:sale-out:approve'" size="small" type="link">审核</Button></Popconfirm><Button v-else v-access:code="'erp:sale-out:reverse'" size="small" type="link" @click="openReverse(row)">反审核</Button></Space></template>
+    <Grid table-title="销售出库列表">
+      <template #toolbar-tools><div class="flex items-center gap-1"><Button v-access:code="'erp:sale-out:create'" class="gap-1" type="primary" @click="openCreate"><Plus class="size-5" /><span>新增销售出库</span></Button><ExportCsvButton file-name="销售出库列表.csv" permission="erp:sale-out:export" :query="exportQuery" resource="sale-out" /></div></template>
+      <template #status="{ row }"><Tag :color="row.status === 'approved' ? 'success' : 'default'">{{ row.status === 'approved' ? '已审批' : '草稿' }}</Tag></template>
+      <template #operation="{ row }"><DocumentTableActions approve-impact="审批后将扣减库存并占用销售订单剩余数量，确认继续吗？" approve-permission="erp:sale-out:approve" delete-permission="erp:sale-out:delete" :document-id="row.id" :document-no="row.no" document-type="sale_out" reverse-permission="erp:sale-out:reverse" :status="row.status" update-permission="erp:sale-out:update" @approve="approve(row)" @delete="remove(row)" @edit="openEdit(row)" @reverse="openReverse(row)" /></template>
     </Grid>
   </Page>
 </template>

@@ -5,7 +5,8 @@ import type { ActionLogQuery, DocumentActionLogRecord } from '#/modules/erp/api/
 import { reactive } from 'vue';
 
 import { Page } from '@vben/common-ui';
-import { Button, Input, Select, Space, Tag } from 'ant-design-vue';
+import { RotateCw, Search } from '@vben/icons';
+import { Button, Input, Select, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { listDocumentActionLogsApi } from '#/modules/erp/api/erp';
@@ -74,13 +75,13 @@ function reset() {
   <Page auto-content-height>
     <Grid table-title="操作日志">
       <template #toolbar-tools>
-        <Space wrap>
-          <Input v-model:value="filters.resource_type" allow-clear placeholder="资源类型" @press-enter="search" />
-          <Input v-model:value="filters.resource_id" allow-clear placeholder="资源 ID" @press-enter="search" />
+        <div class="flex flex-wrap items-center gap-1">
+          <Input v-model:value="filters.resource_type" allow-clear class="w-36" placeholder="资源类型" @press-enter="search" />
+          <Input v-model:value="filters.resource_id" allow-clear class="w-48" placeholder="资源 ID" @press-enter="search" />
           <Select v-model:value="filters.action" allow-clear class="w-36" :options="actionOptions" placeholder="操作动作" />
-          <Button type="primary" @click="search">查询</Button>
-          <Button @click="reset">重置</Button>
-        </Space>
+          <Button class="gap-1" type="primary" @click="search"><Search class="size-4" /><span>查询</span></Button>
+          <Button class="gap-1" @click="reset"><RotateCw class="size-4" /><span>重置</span></Button>
+        </div>
       </template>
       <template #action="{ row }"><Tag color="blue">{{ actionLabels[row.action] ?? row.action }}</Tag></template>
     </Grid>

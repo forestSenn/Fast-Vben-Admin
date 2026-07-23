@@ -2,3 +2,4 @@ name: suite
 modules:
   - platform
   - items
+  - erp

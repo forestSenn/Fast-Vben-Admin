@@ -16,7 +16,7 @@ def test_module_migration_configuration_is_namespaced() -> None:
     items_config = module_alembic_config("items")
 
     assert migration_order(edition="base") == ["platform"]
-    assert migration_order(edition="suite") == ["platform", "items"]
+    assert migration_order(edition="suite") == ["platform", "items", "erp"]
     assert items_config.get_main_option("script_location") == "app/modules/items/migrations"
     assert items_config.get_main_option("version_table") == "alembic_version_items"
     assert items_config.get_main_option("version_table_schema") == "public"
@@ -32,7 +32,7 @@ def test_suite_migration_records_independent_items_revision(db: Session) -> None
         connection.execute(
             text("UPDATE moduleregistry SET observed_state = 'bundled' WHERE code = 'items'")
         )
-    assert migrate_edition(edition="suite") == ["platform", "items"]
+    assert migrate_edition(edition="suite") == ["platform", "items", "erp"]
 
     with engine.connect() as connection:
         assert connection.execute(
@@ -67,7 +67,7 @@ def test_suite_migration_records_independent_items_revision(db: Session) -> None
             )
         ).scalar_one()
 
-    assert migrate_edition(edition="suite") == ["platform", "items"]
+    assert migrate_edition(edition="suite") == ["platform", "items", "erp"]
     with engine.connect() as connection:
         assert connection.execute(
             text(
@@ -127,7 +127,7 @@ def test_failed_module_migration_marks_only_the_failed_module_degraded(
 
     monkeypatch.setattr(migrations.command, "upgrade", original_upgrade)
     monkeypatch.setattr(migrations, "migration_is_current", original_is_current)
-    assert migrate_edition(edition="suite") == ["platform", "items"]
+    assert migrate_edition(edition="suite") == ["platform", "items", "erp"]
     with engine.connect() as connection:
         assert connection.execute(
             text("SELECT observed_state FROM moduleregistry WHERE code = 'items'")

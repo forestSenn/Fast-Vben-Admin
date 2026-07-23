@@ -7,20 +7,19 @@ import { computed, reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
-import { IconifyIcon, Plus } from '@vben/icons';
+import { Plus } from '@vben/icons';
 import {
   Button,
   Drawer,
   Form,
   Input,
   InputNumber,
-  Popconfirm,
   Segmented,
   Switch,
   Tag,
 } from 'ant-design-vue';
 
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { useVbenVxeGrid, VbenTableAction } from '#/adapter/vxe-table';
 import ExportCsvButton from '#/modules/erp/components/export-csv-button.vue';
 import {
   createCounterpartyApi,
@@ -73,8 +72,6 @@ const permissionPrefix: Record<CounterpartyKind, string> = {
 
 const [Grid, gridApi] = useVbenVxeGrid({
   formOptions: {
-    actionLayout: 'newLine',
-    actionPosition: 'right',
     schema: [
       {
         component: 'Input',
@@ -98,7 +95,6 @@ const [Grid, gridApi] = useVbenVxeGrid({
       },
     ],
     showCollapseButton: true,
-    wrapperClass: 'grid-cols-1 gap-x-6 lg:grid-cols-3',
   },
   gridOptions: {
     columns: [
@@ -125,7 +121,7 @@ const [Grid, gridApi] = useVbenVxeGrid({
         fixed: 'right',
         slots: { default: 'operation' },
         title: '操作',
-        width: 120,
+        width: 180,
       },
     ],
     height: 'auto',
@@ -237,12 +233,12 @@ watch(
       v-model:open="drawerOpen"
       :confirm-loading="saving"
       :title="`${editingId ? '编辑' : '新增'}${labels[kind]}`"
+      class="w-[min(720px,calc(100vw-24px))]"
       placement="right"
-      width="620"
       @close="resetForm"
     >
-      <Form ref="formRef" :model="form" layout="vertical">
-        <div class="grid grid-cols-2 gap-x-4">
+      <Form ref="formRef" class="mx-3" :model="form" layout="vertical">
+        <div class="grid grid-cols-1 gap-x-4 md:grid-cols-2">
           <Form.Item
             label="名称"
             name="name"
@@ -308,12 +304,12 @@ watch(
             :rows="2"
         /></Form.Item>
       </Form>
-      <template #footer
-        ><Button @click="drawerOpen = false">取消</Button
-        ><Button :loading="saving" type="primary" @click="submit"
-          >保存</Button
-        ></template
-      >
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <Button @click="drawerOpen = false">取消</Button>
+          <Button :loading="saving" type="primary" @click="submit">保存</Button>
+        </div>
+      </template>
     </Drawer>
     <Segmented
       v-if="!isDedicatedPage"
@@ -326,44 +322,37 @@ watch(
       @change="changeKind($event as CounterpartyKind)"
     />
     <Grid :table-title="isDedicatedPage ? `${labels[kind]}列表` : '往来单位列表'">
-      <template #toolbar-tools
-        ><Button
-          v-access:code="`${permissionPrefix[kind]}:create`"
-          type="primary"
-          @click="openCreate"
-          ><Plus class="size-5" />新增{{ labels[kind] }}</Button
-        ><ExportCsvButton
-          :file-name="`${kind}s.csv`"
-          :permission="`${permissionPrefix[kind]}:export`"
-          :query="exportQuery"
-          :resource="kind"
+      <template #toolbar-tools>
+        <div class="flex items-center gap-1">
+          <Button
+            v-access:code="`${permissionPrefix[kind]}:create`"
+            class="gap-1"
+            type="primary"
+            @click="openCreate"
+          >
+            <Plus class="size-5" /><span>新增{{ labels[kind] }}</span>
+          </Button>
+          <ExportCsvButton
+            :file-name="`${labels[kind]}列表.csv`"
+            :permission="`${permissionPrefix[kind]}:export`"
+            :query="exportQuery"
+            :resource="kind"
+          />
+        </div>
+      </template>
+      <template #status="{ row }">
+        <Tag :color="row.is_active ? 'success' : 'default'">
+          {{ row.is_active ? '启用' : '停用' }}
+        </Tag>
+      </template>
+      <template #operation="{ row }">
+        <VbenTableAction
+          :actions="[
+            { auth: [`${permissionPrefix[kind]}:update`], icon: 'lucide:square-pen', onClick: openEdit.bind(null, row), text: '编辑', variant: 'link' },
+            { auth: [`${permissionPrefix[kind]}:delete`], danger: true, icon: 'lucide:trash-2', popConfirm: { cancelText: '取消', confirm: removeRecord.bind(null, row), okText: '确认', title: `确认删除${labels[kind]} ${row.name} 吗？` }, text: '删除', variant: 'link' },
+          ]"
         />
-      </template
-      >
-      <template #status="{ row }"
-        ><Tag :color="row.is_active ? 'blue' : 'default'">{{
-          row.is_active ? '开启' : '关闭'
-        }}</Tag></template
-      >
-      <template #operation="{ row }"
-        ><Button
-          v-access:code="`${permissionPrefix[kind]}:update`"
-          size="small"
-          type="link"
-          @click="openEdit(row)"
-          ><IconifyIcon class="mr-1 size-4" icon="lucide:square-pen" />修改</Button
-        ><Popconfirm
-          title="删除后无法恢复。确定继续吗？"
-          @confirm="removeRecord(row)"
-          ><Button
-            v-access:code="`${permissionPrefix[kind]}:delete`"
-            danger
-            size="small"
-            type="link"
-            ><IconifyIcon class="mr-1 size-4" icon="lucide:trash-2" />删除</Button
-          ></Popconfirm
-        ></template
-      >
+      </template>
     </Grid>
   </Page>
 </template>

@@ -131,6 +131,244 @@ export type BodyUsersImportUsers = {
 };
 
 /**
+ * CounterpartyCreate
+ */
+export type CounterpartyCreate = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Contact Name
+     */
+    contact_name?: string | null;
+    /**
+     * Mobile
+     */
+    mobile?: string | null;
+    /**
+     * Phone
+     */
+    phone?: string | null;
+    /**
+     * Email
+     */
+    email?: string | null;
+    /**
+     * Fax
+     */
+    fax?: string | null;
+    /**
+     * Tax No
+     */
+    tax_no?: string | null;
+    /**
+     * Tax Rate
+     */
+    tax_rate?: number | string;
+    /**
+     * Bank Name
+     */
+    bank_name?: string | null;
+    /**
+     * Bank Account
+     */
+    bank_account?: string | null;
+    /**
+     * Address
+     */
+    address?: string | null;
+    /**
+     * Sort
+     */
+    sort?: number;
+    /**
+     * Is Active
+     */
+    is_active?: boolean;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * CounterpartyPublic
+ */
+export type CounterpartyPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Tenant Id
+     */
+    tenant_id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Contact Name
+     */
+    contact_name?: string | null;
+    /**
+     * Mobile
+     */
+    mobile?: string | null;
+    /**
+     * Phone
+     */
+    phone?: string | null;
+    /**
+     * Email
+     */
+    email?: string | null;
+    /**
+     * Fax
+     */
+    fax?: string | null;
+    /**
+     * Tax No
+     */
+    tax_no?: string | null;
+    /**
+     * Tax Rate
+     */
+    tax_rate: string;
+    /**
+     * Bank Name
+     */
+    bank_name?: string | null;
+    /**
+     * Bank Account Masked
+     */
+    bank_account_masked?: string | null;
+    /**
+     * Address
+     */
+    address?: string | null;
+    /**
+     * Sort
+     */
+    sort: number;
+    /**
+     * Is Active
+     */
+    is_active: boolean;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+    /**
+     * Updated At
+     */
+    updated_at?: string | null;
+};
+
+/**
+ * CounterpartySensitivePublic
+ */
+export type CounterpartySensitivePublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Bank Account
+     */
+    bank_account: string;
+};
+
+/**
+ * CounterpartyUpdate
+ */
+export type CounterpartyUpdate = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Contact Name
+     */
+    contact_name?: string | null;
+    /**
+     * Mobile
+     */
+    mobile?: string | null;
+    /**
+     * Phone
+     */
+    phone?: string | null;
+    /**
+     * Email
+     */
+    email?: string | null;
+    /**
+     * Fax
+     */
+    fax?: string | null;
+    /**
+     * Tax No
+     */
+    tax_no?: string | null;
+    /**
+     * Tax Rate
+     */
+    tax_rate?: number | string | null;
+    /**
+     * Bank Name
+     */
+    bank_name?: string | null;
+    /**
+     * Bank Account
+     */
+    bank_account?: string | null;
+    /**
+     * Address
+     */
+    address?: string | null;
+    /**
+     * Sort
+     */
+    sort?: number | null;
+    /**
+     * Is Active
+     */
+    is_active?: boolean | null;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * CustomersPublic
+ */
+export type CustomersPublic = {
+    /**
+     * Items
+     */
+    items: Array<CounterpartyPublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+};
+
+/**
  * DashboardAnalytics
  */
 export type DashboardAnalytics = {
@@ -645,6 +883,175 @@ export type DictionaryTypesPublic = {
 };
 
 /**
+ * DocumentAction
+ */
+export type DocumentAction = 'created' | 'updated' | 'deleted' | 'approved' | 'reversed' | 'exported' | 'sensitive_viewed';
+
+/**
+ * DocumentActionLogPublic
+ */
+export type DocumentActionLogPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Resource Type
+     */
+    resource_type: string;
+    /**
+     * Resource Id
+     */
+    resource_id: string;
+    /**
+     * Resource No
+     */
+    resource_no?: string | null;
+    /**
+     * Action
+     */
+    action: string;
+    /**
+     * Old Status
+     */
+    old_status?: string | null;
+    /**
+     * New Status
+     */
+    new_status?: string | null;
+    /**
+     * Old Version
+     */
+    old_version?: number | null;
+    /**
+     * New Version
+     */
+    new_version?: number | null;
+    /**
+     * Actor Id
+     */
+    actor_id: string;
+    /**
+     * Reason
+     */
+    reason?: string | null;
+    /**
+     * Metadata Json
+     */
+    metadata_json: {
+        [key: string]: unknown;
+    };
+    /**
+     * Occurred At
+     */
+    occurred_at: string;
+};
+
+/**
+ * DocumentActionLogsPublic
+ */
+export type DocumentActionLogsPublic = {
+    /**
+     * Items
+     */
+    items: Array<DocumentActionLogPublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+};
+
+/**
+ * DocumentAttachmentCreate
+ */
+export type DocumentAttachmentCreate = {
+    /**
+     * File Id
+     */
+    file_id: string;
+    /**
+     * Sort
+     */
+    sort?: number;
+};
+
+/**
+ * DocumentAttachmentPublic
+ */
+export type DocumentAttachmentPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * File Id
+     */
+    file_id: string;
+    /**
+     * File Name
+     */
+    file_name: string;
+    /**
+     * Content Type
+     */
+    content_type?: string | null;
+    /**
+     * Size
+     */
+    size: number;
+    /**
+     * Sort
+     */
+    sort: number;
+    /**
+     * Created At
+     */
+    created_at: string;
+};
+
+/**
+ * DocumentAttachmentsPublic
+ */
+export type DocumentAttachmentsPublic = {
+    /**
+     * Items
+     */
+    items: Array<DocumentAttachmentPublic>;
+};
+
+/**
+ * DocumentCommand
+ */
+export type DocumentCommand = {
+    /**
+     * Expected Version
+     */
+    expected_version: number;
+};
+
+/**
+ * DocumentReverseCommand
+ */
+export type DocumentReverseCommand = {
+    /**
+     * Expected Version
+     */
+    expected_version: number;
+    /**
+     * Reason
+     */
+    reason: string;
+};
+
+/**
  * EnterpriseOidcStatus
  */
 export type EnterpriseOidcStatus = {
@@ -976,6 +1383,402 @@ export type FileStorageChannelsPublic = {
      * Items
      */
     items: Array<FileStorageChannelPublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+};
+
+/**
+ * FinancePaymentCreate
+ */
+export type FinancePaymentCreate = {
+    /**
+     * Supplier Id
+     */
+    supplier_id: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id: string;
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Discount Amount
+     */
+    discount_amount?: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<SettlementLineCreate>;
+};
+
+/**
+ * FinancePaymentItemPublic
+ */
+export type FinancePaymentItemPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Source Type
+     */
+    source_type: string;
+    /**
+     * Source Document Id
+     */
+    source_document_id: string;
+    /**
+     * Source Document No
+     */
+    source_document_no: string;
+    /**
+     * Source Total Signed
+     */
+    source_total_signed: string;
+    /**
+     * Settled Before Signed
+     */
+    settled_before_signed: string;
+    /**
+     * Settlement Signed
+     */
+    settlement_signed: string;
+    /**
+     * Discount Allocated
+     */
+    discount_allocated: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * FinancePaymentPublic
+ */
+export type FinancePaymentPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * No
+     */
+    no: string;
+    /**
+     * Supplier Id
+     */
+    supplier_id: string;
+    /**
+     * Supplier Name
+     */
+    supplier_name: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Version
+     */
+    version: number;
+    /**
+     * Business At
+     */
+    business_at: string;
+    /**
+     * Owner Id
+     */
+    owner_id: string;
+    /**
+     * Total Settlement Amount
+     */
+    total_settlement_amount: string;
+    /**
+     * Discount Amount
+     */
+    discount_amount: string;
+    /**
+     * Payment Amount
+     */
+    payment_amount: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Approved At
+     */
+    approved_at?: string | null;
+    /**
+     * Reversed At
+     */
+    reversed_at?: string | null;
+    /**
+     * Items
+     */
+    items?: Array<FinancePaymentItemPublic>;
+};
+
+/**
+ * FinancePaymentUpdate
+ */
+export type FinancePaymentUpdate = {
+    /**
+     * Supplier Id
+     */
+    supplier_id: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id: string;
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Discount Amount
+     */
+    discount_amount?: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<SettlementLineCreate>;
+    /**
+     * Expected Version
+     */
+    expected_version: number;
+};
+
+/**
+ * FinancePaymentsPublic
+ */
+export type FinancePaymentsPublic = {
+    /**
+     * Items
+     */
+    items: Array<FinancePaymentPublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+};
+
+/**
+ * FinanceReceiptCreate
+ */
+export type FinanceReceiptCreate = {
+    /**
+     * Customer Id
+     */
+    customer_id: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id: string;
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Discount Amount
+     */
+    discount_amount?: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<SettlementLineCreate>;
+};
+
+/**
+ * FinanceReceiptItemPublic
+ */
+export type FinanceReceiptItemPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Source Type
+     */
+    source_type: string;
+    /**
+     * Source Document Id
+     */
+    source_document_id: string;
+    /**
+     * Source Document No
+     */
+    source_document_no: string;
+    /**
+     * Source Total Signed
+     */
+    source_total_signed: string;
+    /**
+     * Settled Before Signed
+     */
+    settled_before_signed: string;
+    /**
+     * Settlement Signed
+     */
+    settlement_signed: string;
+    /**
+     * Discount Allocated
+     */
+    discount_allocated: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * FinanceReceiptPublic
+ */
+export type FinanceReceiptPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * No
+     */
+    no: string;
+    /**
+     * Customer Id
+     */
+    customer_id: string;
+    /**
+     * Customer Name
+     */
+    customer_name: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Version
+     */
+    version: number;
+    /**
+     * Business At
+     */
+    business_at: string;
+    /**
+     * Owner Id
+     */
+    owner_id: string;
+    /**
+     * Total Settlement Amount
+     */
+    total_settlement_amount: string;
+    /**
+     * Discount Amount
+     */
+    discount_amount: string;
+    /**
+     * Receipt Amount
+     */
+    receipt_amount: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Approved At
+     */
+    approved_at?: string | null;
+    /**
+     * Reversed At
+     */
+    reversed_at?: string | null;
+    /**
+     * Items
+     */
+    items?: Array<FinanceReceiptItemPublic>;
+};
+
+/**
+ * FinanceReceiptUpdate
+ */
+export type FinanceReceiptUpdate = {
+    /**
+     * Customer Id
+     */
+    customer_id: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id: string;
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Discount Amount
+     */
+    discount_amount?: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<SettlementLineCreate>;
+    /**
+     * Expected Version
+     */
+    expected_version: number;
+};
+
+/**
+ * FinanceReceiptsPublic
+ */
+export type FinanceReceiptsPublic = {
+    /**
+     * Items
+     */
+    items: Array<FinanceReceiptPublic>;
     /**
      * Total
      */
@@ -2691,6 +3494,1310 @@ export type PrivateUserCreate = {
 };
 
 /**
+ * ProductCategoriesPublic
+ */
+export type ProductCategoriesPublic = {
+    /**
+     * Items
+     */
+    items: Array<ProductCategoryPublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+};
+
+/**
+ * ProductCategoryCreate
+ */
+export type ProductCategoryCreate = {
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Parent Id
+     */
+    parent_id?: string | null;
+    /**
+     * Sort
+     */
+    sort?: number;
+    /**
+     * Is Active
+     */
+    is_active?: boolean;
+};
+
+/**
+ * ProductCategoryPublic
+ */
+export type ProductCategoryPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Tenant Id
+     */
+    tenant_id: string;
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Parent Id
+     */
+    parent_id?: string | null;
+    /**
+     * Sort
+     */
+    sort: number;
+    /**
+     * Is Active
+     */
+    is_active: boolean;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+    /**
+     * Updated At
+     */
+    updated_at?: string | null;
+};
+
+/**
+ * ProductCategoryUpdate
+ */
+export type ProductCategoryUpdate = {
+    /**
+     * Code
+     */
+    code?: string | null;
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Parent Id
+     */
+    parent_id?: string | null;
+    /**
+     * Sort
+     */
+    sort?: number | null;
+    /**
+     * Is Active
+     */
+    is_active?: boolean | null;
+};
+
+/**
+ * ProductCreate
+ */
+export type ProductCreate = {
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Category Id
+     */
+    category_id: string;
+    /**
+     * Unit Id
+     */
+    unit_id: string;
+    /**
+     * Barcode
+     */
+    barcode?: string | null;
+    /**
+     * Specification
+     */
+    specification?: string | null;
+    /**
+     * Weight
+     */
+    weight?: number | string;
+    /**
+     * Expiry Days
+     */
+    expiry_days?: number;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Purchase Reference Price
+     */
+    purchase_reference_price?: number | string;
+    /**
+     * Sale Reference Price
+     */
+    sale_reference_price?: number | string;
+    /**
+     * Min Sale Price
+     */
+    min_sale_price?: number | string;
+    /**
+     * Is Active
+     */
+    is_active?: boolean;
+};
+
+/**
+ * ProductPublic
+ */
+export type ProductPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Tenant Id
+     */
+    tenant_id: string;
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Category Id
+     */
+    category_id?: string | null;
+    /**
+     * Unit Id
+     */
+    unit_id: string;
+    /**
+     * Barcode
+     */
+    barcode?: string | null;
+    /**
+     * Specification
+     */
+    specification?: string | null;
+    /**
+     * Weight
+     */
+    weight: string;
+    /**
+     * Expiry Days
+     */
+    expiry_days: number;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Purchase Reference Price
+     */
+    purchase_reference_price: string;
+    /**
+     * Sale Reference Price
+     */
+    sale_reference_price: string;
+    /**
+     * Min Sale Price
+     */
+    min_sale_price: string;
+    /**
+     * Is Active
+     */
+    is_active: boolean;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+    /**
+     * Updated At
+     */
+    updated_at?: string | null;
+};
+
+/**
+ * ProductUnitCreate
+ */
+export type ProductUnitCreate = {
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Symbol
+     */
+    symbol?: string | null;
+    /**
+     * Is Active
+     */
+    is_active?: boolean;
+};
+
+/**
+ * ProductUnitPublic
+ */
+export type ProductUnitPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Tenant Id
+     */
+    tenant_id: string;
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Symbol
+     */
+    symbol?: string | null;
+    /**
+     * Is Active
+     */
+    is_active: boolean;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+    /**
+     * Updated At
+     */
+    updated_at?: string | null;
+};
+
+/**
+ * ProductUnitUpdate
+ */
+export type ProductUnitUpdate = {
+    /**
+     * Code
+     */
+    code?: string | null;
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Symbol
+     */
+    symbol?: string | null;
+    /**
+     * Is Active
+     */
+    is_active?: boolean | null;
+};
+
+/**
+ * ProductUnitsPublic
+ */
+export type ProductUnitsPublic = {
+    /**
+     * Items
+     */
+    items: Array<ProductUnitPublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+};
+
+/**
+ * ProductUpdate
+ */
+export type ProductUpdate = {
+    /**
+     * Code
+     */
+    code?: string | null;
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Category Id
+     */
+    category_id?: string | null;
+    /**
+     * Unit Id
+     */
+    unit_id?: string | null;
+    /**
+     * Barcode
+     */
+    barcode?: string | null;
+    /**
+     * Specification
+     */
+    specification?: string | null;
+    /**
+     * Weight
+     */
+    weight?: number | string | null;
+    /**
+     * Expiry Days
+     */
+    expiry_days?: number | null;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Purchase Reference Price
+     */
+    purchase_reference_price?: number | string | null;
+    /**
+     * Sale Reference Price
+     */
+    sale_reference_price?: number | string | null;
+    /**
+     * Min Sale Price
+     */
+    min_sale_price?: number | string | null;
+    /**
+     * Is Active
+     */
+    is_active?: boolean | null;
+};
+
+/**
+ * ProductsPublic
+ */
+export type ProductsPublic = {
+    /**
+     * Items
+     */
+    items: Array<ProductPublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+};
+
+/**
+ * PurchaseInCreate
+ */
+export type PurchaseInCreate = {
+    /**
+     * Purchase Order Id
+     */
+    purchase_order_id: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id?: string | null;
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Discount Rate
+     */
+    discount_rate?: number | string;
+    /**
+     * Discount Amount
+     */
+    discount_amount?: number | string | null;
+    /**
+     * Other Fee
+     */
+    other_fee?: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<PurchaseInLineCreate>;
+};
+
+/**
+ * PurchaseInItemPublic
+ */
+export type PurchaseInItemPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Purchase In Id
+     */
+    purchase_in_id: string;
+    /**
+     * Purchase Order Item Id
+     */
+    purchase_order_item_id: string;
+    /**
+     * Line No
+     */
+    line_no: number;
+    /**
+     * Product Id
+     */
+    product_id: string;
+    /**
+     * Warehouse Id
+     */
+    warehouse_id: string;
+    /**
+     * Product Name
+     */
+    product_name: string;
+    /**
+     * Unit Name
+     */
+    unit_name: string;
+    /**
+     * Quantity
+     */
+    quantity: string;
+    /**
+     * Reference Price
+     */
+    reference_price: string;
+    /**
+     * Tax Rate
+     */
+    tax_rate: string;
+    /**
+     * Product Amount
+     */
+    product_amount: string;
+    /**
+     * Tax Amount
+     */
+    tax_amount: string;
+    /**
+     * Total Amount
+     */
+    total_amount: string;
+    /**
+     * Returned Quantity
+     */
+    returned_quantity: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * PurchaseInLineCreate
+ */
+export type PurchaseInLineCreate = {
+    /**
+     * Purchase Order Item Id
+     */
+    purchase_order_item_id: string;
+    /**
+     * Warehouse Id
+     */
+    warehouse_id: string;
+    /**
+     * Quantity
+     */
+    quantity: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * PurchaseInPublic
+ */
+export type PurchaseInPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * No
+     */
+    no: string;
+    /**
+     * Purchase Order Id
+     */
+    purchase_order_id: string;
+    /**
+     * Purchase Order No
+     */
+    purchase_order_no: string;
+    /**
+     * Supplier Id
+     */
+    supplier_id: string;
+    /**
+     * Supplier Name
+     */
+    supplier_name: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id?: string | null;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Version
+     */
+    version: number;
+    /**
+     * Business At
+     */
+    business_at: string;
+    /**
+     * Owner Id
+     */
+    owner_id: string;
+    /**
+     * Total Quantity
+     */
+    total_quantity: string;
+    /**
+     * Product Amount
+     */
+    product_amount: string;
+    /**
+     * Tax Amount
+     */
+    tax_amount: string;
+    /**
+     * Discount Rate
+     */
+    discount_rate: string;
+    /**
+     * Discount Amount
+     */
+    discount_amount: string;
+    /**
+     * Other Fee
+     */
+    other_fee: string;
+    /**
+     * Total Amount
+     */
+    total_amount: string;
+    /**
+     * Settled Amount
+     */
+    settled_amount: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Approved At
+     */
+    approved_at?: string | null;
+    /**
+     * Reversed At
+     */
+    reversed_at?: string | null;
+    /**
+     * Items
+     */
+    items?: Array<PurchaseInItemPublic>;
+};
+
+/**
+ * PurchaseInUpdate
+ */
+export type PurchaseInUpdate = {
+    /**
+     * Purchase Order Id
+     */
+    purchase_order_id: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id?: string | null;
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Discount Rate
+     */
+    discount_rate?: number | string;
+    /**
+     * Discount Amount
+     */
+    discount_amount?: number | string | null;
+    /**
+     * Other Fee
+     */
+    other_fee?: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<PurchaseInLineCreate>;
+    /**
+     * Expected Version
+     */
+    expected_version: number;
+};
+
+/**
+ * PurchaseInsPublic
+ */
+export type PurchaseInsPublic = {
+    /**
+     * Items
+     */
+    items: Array<PurchaseInPublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+};
+
+/**
+ * PurchaseOrderCreate
+ */
+export type PurchaseOrderCreate = {
+    /**
+     * Supplier Id
+     */
+    supplier_id: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id?: string | null;
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Discount Rate
+     */
+    discount_rate?: number | string;
+    /**
+     * Discount Amount
+     */
+    discount_amount?: number | string | null;
+    /**
+     * Deposit Amount
+     */
+    deposit_amount?: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<PurchaseOrderLineCreate>;
+};
+
+/**
+ * PurchaseOrderItemPublic
+ */
+export type PurchaseOrderItemPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Purchase Order Id
+     */
+    purchase_order_id: string;
+    /**
+     * Line No
+     */
+    line_no: number;
+    /**
+     * Product Id
+     */
+    product_id: string;
+    /**
+     * Unit Id
+     */
+    unit_id: string;
+    /**
+     * Product Name
+     */
+    product_name: string;
+    /**
+     * Product Barcode
+     */
+    product_barcode?: string | null;
+    /**
+     * Unit Name
+     */
+    unit_name: string;
+    /**
+     * Quantity
+     */
+    quantity: string;
+    /**
+     * Unit Price
+     */
+    unit_price: string;
+    /**
+     * Product Amount
+     */
+    product_amount: string;
+    /**
+     * Tax Rate
+     */
+    tax_rate: string;
+    /**
+     * Tax Amount
+     */
+    tax_amount: string;
+    /**
+     * Total Amount
+     */
+    total_amount: string;
+    /**
+     * Received Quantity
+     */
+    received_quantity: string;
+    /**
+     * Returned Quantity
+     */
+    returned_quantity: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * PurchaseOrderLineCreate
+ */
+export type PurchaseOrderLineCreate = {
+    /**
+     * Product Id
+     */
+    product_id: string;
+    /**
+     * Quantity
+     */
+    quantity: number | string;
+    /**
+     * Unit Price
+     */
+    unit_price: number | string;
+    /**
+     * Tax Rate
+     */
+    tax_rate?: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * PurchaseOrderPublic
+ */
+export type PurchaseOrderPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * No
+     */
+    no: string;
+    /**
+     * Supplier Id
+     */
+    supplier_id: string;
+    /**
+     * Supplier Name
+     */
+    supplier_name: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id?: string | null;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Version
+     */
+    version: number;
+    /**
+     * Business At
+     */
+    business_at: string;
+    /**
+     * Owner Id
+     */
+    owner_id: string;
+    /**
+     * Total Quantity
+     */
+    total_quantity: string;
+    /**
+     * Product Amount
+     */
+    product_amount: string;
+    /**
+     * Tax Amount
+     */
+    tax_amount: string;
+    /**
+     * Discount Rate
+     */
+    discount_rate: string;
+    /**
+     * Discount Amount
+     */
+    discount_amount: string;
+    /**
+     * Deposit Amount
+     */
+    deposit_amount: string;
+    /**
+     * Total Amount
+     */
+    total_amount: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Approved At
+     */
+    approved_at?: string | null;
+    /**
+     * Reversed At
+     */
+    reversed_at?: string | null;
+    /**
+     * Items
+     */
+    items?: Array<PurchaseOrderItemPublic>;
+};
+
+/**
+ * PurchaseOrderUpdate
+ */
+export type PurchaseOrderUpdate = {
+    /**
+     * Supplier Id
+     */
+    supplier_id: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id?: string | null;
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Discount Rate
+     */
+    discount_rate?: number | string;
+    /**
+     * Discount Amount
+     */
+    discount_amount?: number | string | null;
+    /**
+     * Deposit Amount
+     */
+    deposit_amount?: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<PurchaseOrderLineCreate>;
+    /**
+     * Expected Version
+     */
+    expected_version: number;
+};
+
+/**
+ * PurchaseOrdersPublic
+ */
+export type PurchaseOrdersPublic = {
+    /**
+     * Items
+     */
+    items: Array<PurchaseOrderPublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+};
+
+/**
+ * PurchaseReturnCreate
+ */
+export type PurchaseReturnCreate = {
+    /**
+     * Purchase In Id
+     */
+    purchase_in_id: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id?: string | null;
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Discount Rate
+     */
+    discount_rate?: number | string;
+    /**
+     * Discount Amount
+     */
+    discount_amount?: number | string | null;
+    /**
+     * Other Fee
+     */
+    other_fee?: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<PurchaseReturnLineCreate>;
+};
+
+/**
+ * PurchaseReturnItemPublic
+ */
+export type PurchaseReturnItemPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Purchase Return Id
+     */
+    purchase_return_id: string;
+    /**
+     * Purchase In Item Id
+     */
+    purchase_in_item_id: string;
+    /**
+     * Purchase Order Item Id
+     */
+    purchase_order_item_id: string;
+    /**
+     * Line No
+     */
+    line_no: number;
+    /**
+     * Product Id
+     */
+    product_id: string;
+    /**
+     * Warehouse Id
+     */
+    warehouse_id: string;
+    /**
+     * Product Name
+     */
+    product_name: string;
+    /**
+     * Unit Name
+     */
+    unit_name: string;
+    /**
+     * Quantity
+     */
+    quantity: string;
+    /**
+     * Reference Price
+     */
+    reference_price: string;
+    /**
+     * Tax Rate
+     */
+    tax_rate: string;
+    /**
+     * Product Amount
+     */
+    product_amount: string;
+    /**
+     * Tax Amount
+     */
+    tax_amount: string;
+    /**
+     * Total Amount
+     */
+    total_amount: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * PurchaseReturnLineCreate
+ */
+export type PurchaseReturnLineCreate = {
+    /**
+     * Purchase In Item Id
+     */
+    purchase_in_item_id: string;
+    /**
+     * Quantity
+     */
+    quantity: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * PurchaseReturnPublic
+ */
+export type PurchaseReturnPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * No
+     */
+    no: string;
+    /**
+     * Purchase In Id
+     */
+    purchase_in_id: string;
+    /**
+     * Purchase In No
+     */
+    purchase_in_no: string;
+    /**
+     * Purchase Order Id
+     */
+    purchase_order_id: string;
+    /**
+     * Supplier Id
+     */
+    supplier_id: string;
+    /**
+     * Supplier Name
+     */
+    supplier_name: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id?: string | null;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Version
+     */
+    version: number;
+    /**
+     * Business At
+     */
+    business_at: string;
+    /**
+     * Owner Id
+     */
+    owner_id: string;
+    /**
+     * Total Quantity
+     */
+    total_quantity: string;
+    /**
+     * Product Amount
+     */
+    product_amount: string;
+    /**
+     * Tax Amount
+     */
+    tax_amount: string;
+    /**
+     * Discount Rate
+     */
+    discount_rate: string;
+    /**
+     * Discount Amount
+     */
+    discount_amount: string;
+    /**
+     * Other Fee
+     */
+    other_fee: string;
+    /**
+     * Total Amount
+     */
+    total_amount: string;
+    /**
+     * Settled Amount
+     */
+    settled_amount: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Approved At
+     */
+    approved_at?: string | null;
+    /**
+     * Reversed At
+     */
+    reversed_at?: string | null;
+    /**
+     * Items
+     */
+    items?: Array<PurchaseReturnItemPublic>;
+};
+
+/**
+ * PurchaseReturnUpdate
+ */
+export type PurchaseReturnUpdate = {
+    /**
+     * Purchase In Id
+     */
+    purchase_in_id: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id?: string | null;
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Discount Rate
+     */
+    discount_rate?: number | string;
+    /**
+     * Discount Amount
+     */
+    discount_amount?: number | string | null;
+    /**
+     * Other Fee
+     */
+    other_fee?: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<PurchaseReturnLineCreate>;
+    /**
+     * Expected Version
+     */
+    expected_version: number;
+};
+
+/**
+ * PurchaseReturnsPublic
+ */
+export type PurchaseReturnsPublic = {
+    /**
+     * Items
+     */
+    items: Array<PurchaseReturnPublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+};
+
+/**
  * QrCodeLoginChallenge
  */
 export type QrCodeLoginChallenge = {
@@ -2794,6 +4901,46 @@ export type QrCodeLoginStatusRequest = {
      * Poll Token
      */
     poll_token: string;
+};
+
+/**
+ * ReconciliationRunPublic
+ */
+export type ReconciliationRunPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Stock Difference Count
+     */
+    stock_difference_count: number;
+    /**
+     * Settlement Difference Count
+     */
+    settlement_difference_count: number;
+    /**
+     * Summary Json
+     */
+    summary_json: {
+        [key: string]: unknown;
+    };
+    /**
+     * Started At
+     */
+    started_at: string;
+    /**
+     * Completed At
+     */
+    completed_at?: string | null;
+    /**
+     * Triggered By
+     */
+    triggered_by?: string | null;
 };
 
 /**
@@ -2957,6 +5104,1038 @@ export type RolesPublic = {
      * Page Size
      */
     page_size: number;
+};
+
+/**
+ * SaleOrderCreate
+ */
+export type SaleOrderCreate = {
+    /**
+     * Customer Id
+     */
+    customer_id: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id?: string | null;
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Discount Rate
+     */
+    discount_rate?: number | string;
+    /**
+     * Discount Amount
+     */
+    discount_amount?: number | string | null;
+    /**
+     * Deposit Amount
+     */
+    deposit_amount?: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<SaleOrderLineCreate>;
+};
+
+/**
+ * SaleOrderItemPublic
+ */
+export type SaleOrderItemPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Sale Order Id
+     */
+    sale_order_id: string;
+    /**
+     * Line No
+     */
+    line_no: number;
+    /**
+     * Product Id
+     */
+    product_id: string;
+    /**
+     * Unit Id
+     */
+    unit_id: string;
+    /**
+     * Product Name
+     */
+    product_name: string;
+    /**
+     * Product Barcode
+     */
+    product_barcode?: string | null;
+    /**
+     * Unit Name
+     */
+    unit_name: string;
+    /**
+     * Quantity
+     */
+    quantity: string;
+    /**
+     * Unit Price
+     */
+    unit_price: string;
+    /**
+     * Product Amount
+     */
+    product_amount: string;
+    /**
+     * Tax Rate
+     */
+    tax_rate: string;
+    /**
+     * Tax Amount
+     */
+    tax_amount: string;
+    /**
+     * Total Amount
+     */
+    total_amount: string;
+    /**
+     * Shipped Quantity
+     */
+    shipped_quantity: string;
+    /**
+     * Returned Quantity
+     */
+    returned_quantity: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * SaleOrderLineCreate
+ */
+export type SaleOrderLineCreate = {
+    /**
+     * Product Id
+     */
+    product_id: string;
+    /**
+     * Quantity
+     */
+    quantity: number | string;
+    /**
+     * Unit Price
+     */
+    unit_price: number | string;
+    /**
+     * Tax Rate
+     */
+    tax_rate?: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * SaleOrderPublic
+ */
+export type SaleOrderPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * No
+     */
+    no: string;
+    /**
+     * Customer Id
+     */
+    customer_id: string;
+    /**
+     * Customer Name
+     */
+    customer_name: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id?: string | null;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Version
+     */
+    version: number;
+    /**
+     * Business At
+     */
+    business_at: string;
+    /**
+     * Owner Id
+     */
+    owner_id: string;
+    /**
+     * Total Quantity
+     */
+    total_quantity: string;
+    /**
+     * Product Amount
+     */
+    product_amount: string;
+    /**
+     * Tax Amount
+     */
+    tax_amount: string;
+    /**
+     * Discount Rate
+     */
+    discount_rate: string;
+    /**
+     * Discount Amount
+     */
+    discount_amount: string;
+    /**
+     * Deposit Amount
+     */
+    deposit_amount: string;
+    /**
+     * Total Amount
+     */
+    total_amount: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Approved At
+     */
+    approved_at?: string | null;
+    /**
+     * Reversed At
+     */
+    reversed_at?: string | null;
+    /**
+     * Items
+     */
+    items?: Array<SaleOrderItemPublic>;
+};
+
+/**
+ * SaleOrderUpdate
+ */
+export type SaleOrderUpdate = {
+    /**
+     * Customer Id
+     */
+    customer_id: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id?: string | null;
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Discount Rate
+     */
+    discount_rate?: number | string;
+    /**
+     * Discount Amount
+     */
+    discount_amount?: number | string | null;
+    /**
+     * Deposit Amount
+     */
+    deposit_amount?: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<SaleOrderLineCreate>;
+    /**
+     * Expected Version
+     */
+    expected_version: number;
+};
+
+/**
+ * SaleOrdersPublic
+ */
+export type SaleOrdersPublic = {
+    /**
+     * Items
+     */
+    items: Array<SaleOrderPublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+};
+
+/**
+ * SaleOutCreate
+ */
+export type SaleOutCreate = {
+    /**
+     * Sale Order Id
+     */
+    sale_order_id: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id?: string | null;
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Discount Rate
+     */
+    discount_rate?: number | string;
+    /**
+     * Discount Amount
+     */
+    discount_amount?: number | string | null;
+    /**
+     * Other Deduction
+     */
+    other_deduction?: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<SaleOutLineCreate>;
+};
+
+/**
+ * SaleOutItemPublic
+ */
+export type SaleOutItemPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Sale Out Id
+     */
+    sale_out_id: string;
+    /**
+     * Sale Order Item Id
+     */
+    sale_order_item_id: string;
+    /**
+     * Line No
+     */
+    line_no: number;
+    /**
+     * Product Id
+     */
+    product_id: string;
+    /**
+     * Warehouse Id
+     */
+    warehouse_id: string;
+    /**
+     * Product Name
+     */
+    product_name: string;
+    /**
+     * Unit Name
+     */
+    unit_name: string;
+    /**
+     * Quantity
+     */
+    quantity: string;
+    /**
+     * Reference Price
+     */
+    reference_price: string;
+    /**
+     * Tax Rate
+     */
+    tax_rate: string;
+    /**
+     * Product Amount
+     */
+    product_amount: string;
+    /**
+     * Tax Amount
+     */
+    tax_amount: string;
+    /**
+     * Total Amount
+     */
+    total_amount: string;
+    /**
+     * Returned Quantity
+     */
+    returned_quantity: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * SaleOutLineCreate
+ */
+export type SaleOutLineCreate = {
+    /**
+     * Sale Order Item Id
+     */
+    sale_order_item_id: string;
+    /**
+     * Warehouse Id
+     */
+    warehouse_id: string;
+    /**
+     * Quantity
+     */
+    quantity: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * SaleOutPublic
+ */
+export type SaleOutPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * No
+     */
+    no: string;
+    /**
+     * Sale Order Id
+     */
+    sale_order_id: string;
+    /**
+     * Sale Order No
+     */
+    sale_order_no: string;
+    /**
+     * Customer Id
+     */
+    customer_id: string;
+    /**
+     * Customer Name
+     */
+    customer_name: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id?: string | null;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Version
+     */
+    version: number;
+    /**
+     * Business At
+     */
+    business_at: string;
+    /**
+     * Owner Id
+     */
+    owner_id: string;
+    /**
+     * Total Quantity
+     */
+    total_quantity: string;
+    /**
+     * Product Amount
+     */
+    product_amount: string;
+    /**
+     * Tax Amount
+     */
+    tax_amount: string;
+    /**
+     * Discount Rate
+     */
+    discount_rate: string;
+    /**
+     * Discount Amount
+     */
+    discount_amount: string;
+    /**
+     * Other Deduction
+     */
+    other_deduction: string;
+    /**
+     * Total Amount
+     */
+    total_amount: string;
+    /**
+     * Settled Amount
+     */
+    settled_amount: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Approved At
+     */
+    approved_at?: string | null;
+    /**
+     * Reversed At
+     */
+    reversed_at?: string | null;
+    /**
+     * Items
+     */
+    items?: Array<SaleOutItemPublic>;
+};
+
+/**
+ * SaleOutUpdate
+ */
+export type SaleOutUpdate = {
+    /**
+     * Sale Order Id
+     */
+    sale_order_id: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id?: string | null;
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Discount Rate
+     */
+    discount_rate?: number | string;
+    /**
+     * Discount Amount
+     */
+    discount_amount?: number | string | null;
+    /**
+     * Other Deduction
+     */
+    other_deduction?: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<SaleOutLineCreate>;
+    /**
+     * Expected Version
+     */
+    expected_version: number;
+};
+
+/**
+ * SaleOutsPublic
+ */
+export type SaleOutsPublic = {
+    /**
+     * Items
+     */
+    items: Array<SaleOutPublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+};
+
+/**
+ * SaleReturnCreate
+ */
+export type SaleReturnCreate = {
+    /**
+     * Sale Out Id
+     */
+    sale_out_id: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id?: string | null;
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Discount Rate
+     */
+    discount_rate?: number | string;
+    /**
+     * Discount Amount
+     */
+    discount_amount?: number | string | null;
+    /**
+     * Other Deduction
+     */
+    other_deduction?: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<SaleReturnLineCreate>;
+};
+
+/**
+ * SaleReturnItemPublic
+ */
+export type SaleReturnItemPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Sale Return Id
+     */
+    sale_return_id: string;
+    /**
+     * Sale Out Item Id
+     */
+    sale_out_item_id: string;
+    /**
+     * Sale Order Item Id
+     */
+    sale_order_item_id: string;
+    /**
+     * Line No
+     */
+    line_no: number;
+    /**
+     * Product Id
+     */
+    product_id: string;
+    /**
+     * Warehouse Id
+     */
+    warehouse_id: string;
+    /**
+     * Product Name
+     */
+    product_name: string;
+    /**
+     * Unit Name
+     */
+    unit_name: string;
+    /**
+     * Quantity
+     */
+    quantity: string;
+    /**
+     * Reference Price
+     */
+    reference_price: string;
+    /**
+     * Tax Rate
+     */
+    tax_rate: string;
+    /**
+     * Product Amount
+     */
+    product_amount: string;
+    /**
+     * Tax Amount
+     */
+    tax_amount: string;
+    /**
+     * Total Amount
+     */
+    total_amount: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * SaleReturnLineCreate
+ */
+export type SaleReturnLineCreate = {
+    /**
+     * Sale Out Item Id
+     */
+    sale_out_item_id: string;
+    /**
+     * Quantity
+     */
+    quantity: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * SaleReturnPublic
+ */
+export type SaleReturnPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * No
+     */
+    no: string;
+    /**
+     * Sale Out Id
+     */
+    sale_out_id: string;
+    /**
+     * Sale Out No
+     */
+    sale_out_no: string;
+    /**
+     * Sale Order Id
+     */
+    sale_order_id: string;
+    /**
+     * Customer Id
+     */
+    customer_id: string;
+    /**
+     * Customer Name
+     */
+    customer_name: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id?: string | null;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Version
+     */
+    version: number;
+    /**
+     * Business At
+     */
+    business_at: string;
+    /**
+     * Owner Id
+     */
+    owner_id: string;
+    /**
+     * Total Quantity
+     */
+    total_quantity: string;
+    /**
+     * Product Amount
+     */
+    product_amount: string;
+    /**
+     * Tax Amount
+     */
+    tax_amount: string;
+    /**
+     * Discount Rate
+     */
+    discount_rate: string;
+    /**
+     * Discount Amount
+     */
+    discount_amount: string;
+    /**
+     * Other Deduction
+     */
+    other_deduction: string;
+    /**
+     * Total Amount
+     */
+    total_amount: string;
+    /**
+     * Settled Amount
+     */
+    settled_amount: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Approved At
+     */
+    approved_at?: string | null;
+    /**
+     * Reversed At
+     */
+    reversed_at?: string | null;
+    /**
+     * Items
+     */
+    items?: Array<SaleReturnItemPublic>;
+};
+
+/**
+ * SaleReturnUpdate
+ */
+export type SaleReturnUpdate = {
+    /**
+     * Sale Out Id
+     */
+    sale_out_id: string;
+    /**
+     * Settlement Account Id
+     */
+    settlement_account_id?: string | null;
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Discount Rate
+     */
+    discount_rate?: number | string;
+    /**
+     * Discount Amount
+     */
+    discount_amount?: number | string | null;
+    /**
+     * Other Deduction
+     */
+    other_deduction?: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<SaleReturnLineCreate>;
+    /**
+     * Expected Version
+     */
+    expected_version: number;
+};
+
+/**
+ * SaleReturnsPublic
+ */
+export type SaleReturnsPublic = {
+    /**
+     * Items
+     */
+    items: Array<SaleReturnPublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+};
+
+/**
+ * SettlementAccountCreate
+ */
+export type SettlementAccountCreate = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Account No
+     */
+    account_no: string;
+    /**
+     * Sort
+     */
+    sort?: number;
+    /**
+     * Is Active
+     */
+    is_active?: boolean;
+    /**
+     * Is Default
+     */
+    is_default?: boolean;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * SettlementAccountPublic
+ */
+export type SettlementAccountPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Account No Masked
+     */
+    account_no_masked: string;
+    /**
+     * Sort
+     */
+    sort: number;
+    /**
+     * Is Active
+     */
+    is_active: boolean;
+    /**
+     * Is Default
+     */
+    is_default: boolean;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+    /**
+     * Updated At
+     */
+    updated_at?: string | null;
+};
+
+/**
+ * SettlementAccountSensitivePublic
+ */
+export type SettlementAccountSensitivePublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Account No
+     */
+    account_no: string;
+};
+
+/**
+ * SettlementAccountUpdate
+ */
+export type SettlementAccountUpdate = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Account No
+     */
+    account_no?: string | null;
+    /**
+     * Sort
+     */
+    sort?: number | null;
+    /**
+     * Is Active
+     */
+    is_active?: boolean | null;
+    /**
+     * Is Default
+     */
+    is_default?: boolean | null;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * SettlementAccountsPublic
+ */
+export type SettlementAccountsPublic = {
+    /**
+     * Items
+     */
+    items: Array<SettlementAccountPublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+};
+
+/**
+ * SettlementLineCreate
+ */
+export type SettlementLineCreate = {
+    /**
+     * Source Type
+     */
+    source_type: string;
+    /**
+     * Source Document Id
+     */
+    source_document_id: string;
+    /**
+     * Settlement Amount
+     */
+    settlement_amount: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
 };
 
 /**
@@ -4030,6 +7209,969 @@ export type SocialUsersPublic = {
 };
 
 /**
+ * StatisticsAmountsPublic
+ */
+export type StatisticsAmountsPublic = {
+    /**
+     * Purchase Amount
+     */
+    purchase_amount: string;
+    /**
+     * Sale Amount
+     */
+    sale_amount: string;
+};
+
+/**
+ * StatisticsSummaryPublic
+ */
+export type StatisticsSummaryPublic = {
+    today: StatisticsAmountsPublic;
+    yesterday: StatisticsAmountsPublic;
+    month: StatisticsAmountsPublic;
+    year: StatisticsAmountsPublic;
+};
+
+/**
+ * StatisticsTimeSeriesPointPublic
+ */
+export type StatisticsTimeSeriesPointPublic = {
+    /**
+     * Period Start
+     */
+    period_start: string;
+    /**
+     * Amount
+     */
+    amount: string;
+};
+
+/**
+ * StatisticsTimeSeriesPublic
+ */
+export type StatisticsTimeSeriesPublic = {
+    /**
+     * Type
+     */
+    type: string;
+    /**
+     * Granularity
+     */
+    granularity: string;
+    /**
+     * Items
+     */
+    items: Array<StatisticsTimeSeriesPointPublic>;
+};
+
+/**
+ * StockBalancePublic
+ */
+export type StockBalancePublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Product Id
+     */
+    product_id: string;
+    /**
+     * Product Code
+     */
+    product_code: string;
+    /**
+     * Product Name
+     */
+    product_name: string;
+    /**
+     * Category Id
+     */
+    category_id?: string | null;
+    /**
+     * Unit Name
+     */
+    unit_name: string;
+    /**
+     * Warehouse Id
+     */
+    warehouse_id: string;
+    /**
+     * Warehouse Name
+     */
+    warehouse_name: string;
+    /**
+     * Quantity
+     */
+    quantity: string;
+    /**
+     * Version
+     */
+    version: number;
+    /**
+     * Updated At
+     */
+    updated_at?: string | null;
+};
+
+/**
+ * StockBalancesPublic
+ */
+export type StockBalancesPublic = {
+    /**
+     * Items
+     */
+    items: Array<StockBalancePublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+};
+
+/**
+ * StockCheckCreate
+ */
+export type StockCheckCreate = {
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<StockCheckItemCreate>;
+};
+
+/**
+ * StockCheckItemCreate
+ */
+export type StockCheckItemCreate = {
+    /**
+     * Product Id
+     */
+    product_id: string;
+    /**
+     * Warehouse Id
+     */
+    warehouse_id: string;
+    /**
+     * Actual Quantity
+     */
+    actual_quantity: number | string;
+    /**
+     * Reference Price
+     */
+    reference_price?: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * StockCheckItemPublic
+ */
+export type StockCheckItemPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Stock Check Id
+     */
+    stock_check_id: string;
+    /**
+     * Line No
+     */
+    line_no: number;
+    /**
+     * Product Id
+     */
+    product_id: string;
+    /**
+     * Warehouse Id
+     */
+    warehouse_id: string;
+    /**
+     * Snapshot Quantity
+     */
+    snapshot_quantity: string;
+    /**
+     * Actual Quantity
+     */
+    actual_quantity: string;
+    /**
+     * Difference Quantity
+     */
+    difference_quantity: string;
+    /**
+     * Reference Price
+     */
+    reference_price: string;
+    /**
+     * Difference Amount
+     */
+    difference_amount: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * StockCheckPublic
+ */
+export type StockCheckPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * No
+     */
+    no: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Version
+     */
+    version: number;
+    /**
+     * Business At
+     */
+    business_at: string;
+    /**
+     * Owner Id
+     */
+    owner_id: string;
+    /**
+     * Total Quantity
+     */
+    total_quantity: string;
+    /**
+     * Total Amount
+     */
+    total_amount: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items?: Array<StockCheckItemPublic>;
+};
+
+/**
+ * StockCheckUpdate
+ */
+export type StockCheckUpdate = {
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<StockCheckItemCreate>;
+    /**
+     * Expected Version
+     */
+    expected_version: number;
+};
+
+/**
+ * StockChecksPublic
+ */
+export type StockChecksPublic = {
+    /**
+     * Items
+     */
+    items: Array<StockCheckPublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+};
+
+/**
+ * StockDocumentItemCreate
+ */
+export type StockDocumentItemCreate = {
+    /**
+     * Product Id
+     */
+    product_id: string;
+    /**
+     * Warehouse Id
+     */
+    warehouse_id: string;
+    /**
+     * Quantity
+     */
+    quantity: number | string;
+    /**
+     * Reference Price
+     */
+    reference_price?: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * StockInCreate
+ */
+export type StockInCreate = {
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Supplier Id
+     */
+    supplier_id?: string | null;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<StockDocumentItemCreate>;
+};
+
+/**
+ * StockInItemPublic
+ */
+export type StockInItemPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Stock In Id
+     */
+    stock_in_id: string;
+    /**
+     * Line No
+     */
+    line_no: number;
+    /**
+     * Product Id
+     */
+    product_id: string;
+    /**
+     * Warehouse Id
+     */
+    warehouse_id: string;
+    /**
+     * Quantity
+     */
+    quantity: string;
+    /**
+     * Reference Price
+     */
+    reference_price: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * StockInPublic
+ */
+export type StockInPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * No
+     */
+    no: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Version
+     */
+    version: number;
+    /**
+     * Business At
+     */
+    business_at: string;
+    /**
+     * Owner Id
+     */
+    owner_id: string;
+    /**
+     * Supplier Id
+     */
+    supplier_id?: string | null;
+    /**
+     * Total Quantity
+     */
+    total_quantity: string;
+    /**
+     * Total Amount
+     */
+    total_amount: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Approved At
+     */
+    approved_at?: string | null;
+    /**
+     * Reversed At
+     */
+    reversed_at?: string | null;
+    /**
+     * Items
+     */
+    items?: Array<StockInItemPublic>;
+};
+
+/**
+ * StockInUpdate
+ */
+export type StockInUpdate = {
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Supplier Id
+     */
+    supplier_id?: string | null;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<StockDocumentItemCreate>;
+    /**
+     * Expected Version
+     */
+    expected_version: number;
+};
+
+/**
+ * StockInsPublic
+ */
+export type StockInsPublic = {
+    /**
+     * Items
+     */
+    items: Array<StockInPublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+};
+
+/**
+ * StockLedgerPublic
+ */
+export type StockLedgerPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Product Id
+     */
+    product_id: string;
+    /**
+     * Product Code
+     */
+    product_code: string;
+    /**
+     * Product Name
+     */
+    product_name: string;
+    /**
+     * Category Id
+     */
+    category_id?: string | null;
+    /**
+     * Unit Name
+     */
+    unit_name: string;
+    /**
+     * Warehouse Id
+     */
+    warehouse_id: string;
+    /**
+     * Warehouse Name
+     */
+    warehouse_name: string;
+    /**
+     * Delta Quantity
+     */
+    delta_quantity: string;
+    /**
+     * Balance After
+     */
+    balance_after: string;
+    /**
+     * Ledger Type
+     */
+    ledger_type: string;
+    /**
+     * Source Document Type
+     */
+    source_document_type: string;
+    /**
+     * Source Document Id
+     */
+    source_document_id: string;
+    /**
+     * Source Item Id
+     */
+    source_item_id: string;
+    /**
+     * Source Document No
+     */
+    source_document_no: string;
+    /**
+     * Source Version
+     */
+    source_version: number;
+    /**
+     * Reversal Of Id
+     */
+    reversal_of_id?: string | null;
+    /**
+     * Operator Id
+     */
+    operator_id: string;
+    /**
+     * Operator Name
+     */
+    operator_name: string;
+    /**
+     * Occurred At
+     */
+    occurred_at: string;
+};
+
+/**
+ * StockLedgerType
+ */
+export type StockLedgerType = 'purchase_in' | 'purchase_in_reversal' | 'purchase_return' | 'purchase_return_reversal' | 'sale_out' | 'sale_out_reversal' | 'sale_return' | 'sale_return_reversal' | 'other_in' | 'other_in_reversal' | 'other_out' | 'other_out_reversal' | 'move_in' | 'move_in_reversal' | 'move_out' | 'move_out_reversal' | 'check_gain' | 'check_gain_reversal' | 'check_loss' | 'check_loss_reversal';
+
+/**
+ * StockLedgersPublic
+ */
+export type StockLedgersPublic = {
+    /**
+     * Items
+     */
+    items: Array<StockLedgerPublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+};
+
+/**
+ * StockMoveCreate
+ */
+export type StockMoveCreate = {
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<StockMoveItemCreate>;
+};
+
+/**
+ * StockMoveItemCreate
+ */
+export type StockMoveItemCreate = {
+    /**
+     * Product Id
+     */
+    product_id: string;
+    /**
+     * From Warehouse Id
+     */
+    from_warehouse_id: string;
+    /**
+     * To Warehouse Id
+     */
+    to_warehouse_id: string;
+    /**
+     * Quantity
+     */
+    quantity: number | string;
+    /**
+     * Reference Price
+     */
+    reference_price?: number | string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * StockMoveItemPublic
+ */
+export type StockMoveItemPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Stock Move Id
+     */
+    stock_move_id: string;
+    /**
+     * Line No
+     */
+    line_no: number;
+    /**
+     * Product Id
+     */
+    product_id: string;
+    /**
+     * From Warehouse Id
+     */
+    from_warehouse_id: string;
+    /**
+     * To Warehouse Id
+     */
+    to_warehouse_id: string;
+    /**
+     * Quantity
+     */
+    quantity: string;
+    /**
+     * Reference Price
+     */
+    reference_price: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * StockMovePublic
+ */
+export type StockMovePublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * No
+     */
+    no: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Version
+     */
+    version: number;
+    /**
+     * Business At
+     */
+    business_at: string;
+    /**
+     * Owner Id
+     */
+    owner_id: string;
+    /**
+     * Total Quantity
+     */
+    total_quantity: string;
+    /**
+     * Total Amount
+     */
+    total_amount: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items?: Array<StockMoveItemPublic>;
+};
+
+/**
+ * StockMoveUpdate
+ */
+export type StockMoveUpdate = {
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<StockMoveItemCreate>;
+    /**
+     * Expected Version
+     */
+    expected_version: number;
+};
+
+/**
+ * StockMovesPublic
+ */
+export type StockMovesPublic = {
+    /**
+     * Items
+     */
+    items: Array<StockMovePublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+};
+
+/**
+ * StockOutCreate
+ */
+export type StockOutCreate = {
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Customer Id
+     */
+    customer_id?: string | null;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<StockDocumentItemCreate>;
+};
+
+/**
+ * StockOutItemPublic
+ */
+export type StockOutItemPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Stock Out Id
+     */
+    stock_out_id: string;
+    /**
+     * Line No
+     */
+    line_no: number;
+    /**
+     * Product Id
+     */
+    product_id: string;
+    /**
+     * Warehouse Id
+     */
+    warehouse_id: string;
+    /**
+     * Quantity
+     */
+    quantity: string;
+    /**
+     * Reference Price
+     */
+    reference_price: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * StockOutPublic
+ */
+export type StockOutPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * No
+     */
+    no: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Version
+     */
+    version: number;
+    /**
+     * Business At
+     */
+    business_at: string;
+    /**
+     * Owner Id
+     */
+    owner_id: string;
+    /**
+     * Customer Id
+     */
+    customer_id?: string | null;
+    /**
+     * Total Quantity
+     */
+    total_quantity: string;
+    /**
+     * Total Amount
+     */
+    total_amount: string;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Approved At
+     */
+    approved_at?: string | null;
+    /**
+     * Reversed At
+     */
+    reversed_at?: string | null;
+    /**
+     * Items
+     */
+    items?: Array<StockOutItemPublic>;
+};
+
+/**
+ * StockOutUpdate
+ */
+export type StockOutUpdate = {
+    /**
+     * Business At
+     */
+    business_at?: string | null;
+    /**
+     * Customer Id
+     */
+    customer_id?: string | null;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Items
+     */
+    items: Array<StockDocumentItemCreate>;
+    /**
+     * Expected Version
+     */
+    expected_version: number;
+};
+
+/**
+ * StockOutsPublic
+ */
+export type StockOutsPublic = {
+    /**
+     * Items
+     */
+    items: Array<StockOutPublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
+};
+
+/**
  * StorageConfigPublic
  */
 export type StorageConfigPublic = {
@@ -4069,6 +8211,28 @@ export type StorageConfigPublic = {
      * Presigned Url Expire Seconds
      */
     presigned_url_expire_seconds?: number | null;
+};
+
+/**
+ * SuppliersPublic
+ */
+export type SuppliersPublic = {
+    /**
+     * Items
+     */
+    items: Array<CounterpartyPublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
 };
 
 /**
@@ -5616,6 +9780,232 @@ export type ValidationError = {
     ctx?: {
         [key: string]: unknown;
     };
+};
+
+/**
+ * WarehouseCreate
+ */
+export type WarehouseCreate = {
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Contact Name
+     */
+    contact_name?: string | null;
+    /**
+     * Contact Phone
+     */
+    contact_phone?: string | null;
+    /**
+     * Address
+     */
+    address?: string | null;
+    /**
+     * Storage Fee Reference
+     */
+    storage_fee_reference?: number | string;
+    /**
+     * Transport Fee Reference
+     */
+    transport_fee_reference?: number | string;
+    /**
+     * Sort
+     */
+    sort?: number;
+    /**
+     * Is Active
+     */
+    is_active?: boolean;
+    /**
+     * Is Default
+     */
+    is_default?: boolean;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * WarehousePublic
+ */
+export type WarehousePublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Tenant Id
+     */
+    tenant_id: string;
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Contact Name
+     */
+    contact_name?: string | null;
+    /**
+     * Contact Phone
+     */
+    contact_phone?: string | null;
+    /**
+     * Address
+     */
+    address?: string | null;
+    /**
+     * Storage Fee Reference
+     */
+    storage_fee_reference: string;
+    /**
+     * Transport Fee Reference
+     */
+    transport_fee_reference: string;
+    /**
+     * Sort
+     */
+    sort: number;
+    /**
+     * Is Active
+     */
+    is_active: boolean;
+    /**
+     * Is Default
+     */
+    is_default: boolean;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+    /**
+     * Updated At
+     */
+    updated_at?: string | null;
+};
+
+/**
+ * WarehouseUpdate
+ */
+export type WarehouseUpdate = {
+    /**
+     * Code
+     */
+    code?: string | null;
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Contact Name
+     */
+    contact_name?: string | null;
+    /**
+     * Contact Phone
+     */
+    contact_phone?: string | null;
+    /**
+     * Address
+     */
+    address?: string | null;
+    /**
+     * Storage Fee Reference
+     */
+    storage_fee_reference?: number | string | null;
+    /**
+     * Transport Fee Reference
+     */
+    transport_fee_reference?: number | string | null;
+    /**
+     * Sort
+     */
+    sort?: number | null;
+    /**
+     * Is Active
+     */
+    is_active?: boolean | null;
+    /**
+     * Is Default
+     */
+    is_default?: boolean | null;
+    /**
+     * Remark
+     */
+    remark?: string | null;
+};
+
+/**
+ * WarehouseUserGrantPublic
+ */
+export type WarehouseUserGrantPublic = {
+    /**
+     * User Id
+     */
+    user_id: string;
+    /**
+     * Full Name
+     */
+    full_name?: string | null;
+    /**
+     * Email
+     */
+    email: string;
+};
+
+/**
+ * WarehouseUserGrantsPublic
+ */
+export type WarehouseUserGrantsPublic = {
+    /**
+     * Items
+     */
+    items: Array<WarehouseUserGrantPublic>;
+};
+
+/**
+ * WarehouseUserGrantsReplace
+ */
+export type WarehouseUserGrantsReplace = {
+    /**
+     * User Ids
+     */
+    user_ids?: Array<string>;
+};
+
+/**
+ * WarehousesPublic
+ */
+export type WarehousesPublic = {
+    /**
+     * Items
+     */
+    items: Array<WarehousePublic>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Page Size
+     */
+    page_size: number;
 };
 
 export type ItemsReadItemsData = {

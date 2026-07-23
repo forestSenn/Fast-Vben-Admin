@@ -129,6 +129,7 @@
   color: hsl(var(--primary, 221 83% 53%));
   line-height: 42px;
   text-align: center;
+  touch-action: none;
   cursor: grab;
   background: white;
   border: 1px solid hsl(var(--border, 214 32% 91%));
