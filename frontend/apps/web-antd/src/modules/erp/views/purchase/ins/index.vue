@@ -15,7 +15,7 @@ import { useRoute } from 'vue-router';
 
 import { Page } from '@vben/common-ui';
 import { Plus } from '@vben/icons';
-import { Button, Drawer, Empty, Input, InputNumber, Tag } from 'ant-design-vue';
+import { Button, Drawer, Input, InputNumber, Tag } from 'ant-design-vue';
 import BigNumber from 'bignumber.js';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
@@ -30,7 +30,6 @@ import {
   listCounterpartiesApi,
   getPurchaseOrderApi,
   listPurchaseInsApi,
-  listPurchaseOrdersApi,
   listProductsApi,
   listSettlementAccountsApi,
   listWarehousesApi,
@@ -45,6 +44,8 @@ import {
   QUANTITY_DECIMAL_PLACES,
   subtractDecimal,
 } from '#/modules/erp/utils/decimal';
+
+import PurchaseOrderPicker from './purchase-order-picker.vue';
 
 interface ReceiptLine {
   purchase_order_item_id: string;
@@ -195,18 +196,18 @@ function formatRate(value: null | number | string | undefined) {
   return normalizeDecimal(value, 4);
 }
 
-function formatOrder(order: PurchaseOrderRecord) { return { label: `${order.no} - ${order.supplier_name}`, value: order.id }; }
 function formatWarehouse(warehouse: WarehouseRecord) { return { label: `${warehouse.name} (${warehouse.code})`, value: warehouse.id }; }
 function formatSettlementAccount(account: SettlementAccountRecord) { return { label: account.name, value: account.id }; }
-async function loadPurchaseOrders(keyword: string) {
-  const result = await listPurchaseOrdersApi({ keyword, page: 1, page_size: 50 });
-  purchaseOrders.value = result.items.filter((order) => order.status === 'approved' && (order.items ?? []).some((item) => compareDecimal(remainingQuantity(item), 0) > 0));
-  return purchaseOrders.value;
-}
 async function loadWarehouses(keyword: string) {
   const result = await listWarehousesApi({ keyword, page: 1, page_size: 50 });
   warehouses.value = result.items.filter((warehouse) => warehouse.is_active);
   return warehouses.value;
+}
+
+function selectPurchaseOrder(order: PurchaseOrderRecord) {
+  purchaseOrders.value = [order];
+  selectedOrderId.value = order.id;
+  selectOrder(order.id);
 }
 async function loadSettlementAccounts(keyword: string) {
   const result = await listSettlementAccountsApi({ keyword, page: 1, page_size: 50 });
@@ -321,13 +322,10 @@ async function confirmReverse(reason: string) {
     >
       <div class="mb-4">
         <div class="mb-1 text-sm font-medium">来源采购订单</div>
-        <ErpRemoteSelect
-          v-model:value="selectedOrderId"
-          class="w-full"
-          :format-option="formatOrder"
-          :load="loadPurchaseOrders"
-          placeholder="请选择已审核且有剩余数量的采购订单"
-          @change="selectOrder"
+        <PurchaseOrderPicker
+          :disabled="Boolean(editingReceipt)"
+          :value="selectedOrder"
+          @select="selectPurchaseOrder"
         />
       </div>
       <div
@@ -387,21 +385,15 @@ async function confirmReverse(reason: string) {
       <div class="mb-2 text-sm font-medium">采购产品清单</div>
       <div
         v-if="!selectedOrder"
-        class="rounded border border-[var(--vben-border-color)] py-10"
+        class="flex h-16 items-center justify-center rounded border border-dashed border-[var(--vben-border-color)] text-sm text-[var(--vben-text-color-secondary)]"
       >
-        <Empty
-          :image="Empty.PRESENTED_IMAGE_SIMPLE"
-          description="请选择来源采购订单"
-        />
+        请选择来源采购订单
       </div>
       <div
         v-else-if="receiptLineRows.length === 0"
-        class="rounded border border-[var(--vben-border-color)] py-10"
+        class="flex h-16 items-center justify-center rounded border border-dashed border-[var(--vben-border-color)] text-sm text-[var(--vben-text-color-secondary)]"
       >
-        <Empty
-          :image="Empty.PRESENTED_IMAGE_SIMPLE"
-          description="该采购订单没有可入库产品"
-        />
+        该采购订单没有可入库产品
       </div>
       <div v-else>
         <div
